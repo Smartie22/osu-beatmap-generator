@@ -27,22 +27,33 @@ class BeatmapDataset(Dataset):
             selection model encoder wants the sequence of time stamps and the sequence of corresponding hit objects (for teacher-forcing training)
         
         params:
-            <root_path> - path to root directory of the dataset
-            <num_points> - number of training points to load from the data set found in <root_path>, default: 10,000
+            <root_path> - path to root directory of the training dataset
+            <num_points> - number of training points to load from the training set found in <root_path>, default: 10,000
         '''
         super().__init__()
 
-        #TODO: initialize a data structure where each element corresponds to the format described above
+        #TODO: check that this works lol
+        #NOTE: this only imports for training set, idk if thats relevant or a problem or anything
 
         #create list which stores each tuple described above
         data = []
 
         #iterate over each beatmap in the training data from <root_path>
-        dct = {}
-        #apply preprocessing on the audio
-        #apply preprocessing on the beatmap
-        #combine results into one map
-
+        i = 0
+        for currdir, dirnames, filenames in os.walk(root_path):
+            if i > num_points:
+                break
+            for name in filenames:
+                if name.endswith(".osu"): # always process .osu before .mp3
+                    #apply preprocessing on the beatmap
+                    dct = process_beatmap(currdir + "/{0}".format(name))
+                    for name2 in filenames: # directories for specific maps are not very large, this should be fine
+                        if name2.endswith(".mp3"):
+                            #apply preprocessing on the audio, then combine results
+                            dct["Audio"] = process_audio(currdir + "/{0}".format(name2))
+                            data[i] = dct
+                            i+=1
+                break
 
         #convert list into pytorch tensor
         data_t = tensor(data)
@@ -62,7 +73,7 @@ class BeatmapDataset(Dataset):
 
 
 
-def preprocess_audio(path, dct, key="Audio"):
+def process_audio(path):
     '''
     Compute mel-spectrogram using the librosa library
 
@@ -71,8 +82,10 @@ def preprocess_audio(path, dct, key="Audio"):
         dct - dictionary to store the result of filter application
         key - the corresponding key our filter application should be mapped to in <dct> (SHOULD ALWAYS USE DEFAULT!!!!)
     '''
-    #TODO: implement
-    dct[key] = "this is a placeholder"
+    audio, sr = librosa.load(path)
+    stft = librosa.stft(audio)
+    melfilter = librosa.feature.melspectrogram(y=stft)
+    return melfilter
 
 def process_beatmap(path):
     '''
@@ -103,7 +116,8 @@ def process_beatmap(path):
                     i += lines_parsed
                 case "[HitObjects]":
                     (lines_parsed, parsed_contents) = parse_timingPoints_hitObjects(contents[i+1:])
-                    dct["HitObjects"] = parsed_contents
+                    dct["TimeStamps"] = parsed_contents[0]
+                    dct["HitObjects"] = parsed_contents[1]
                     i += lines_parsed
                 case _:
                     i += 1
@@ -121,6 +135,7 @@ def parse_gen_diff(contents):
         line = line.strip()
         parts = line.split(':')
         parsed_contents[parts[0].strip()] = parts[1].strip()
+        lines_parsed += 1
     return (lines_parsed, parsed_contents)
 
 def parse_events(contents):
@@ -135,7 +150,9 @@ def parse_events(contents):
         line = line.strip()
         if line[0] == "2" or line[0] == "B":
             parsed_contents.append(line)
+        lines_parsed += 1
     return (lines_parsed, parsed_contents)
+
 
 def parse_timingPoints_hitObjects(contents):
     '''
@@ -148,7 +165,31 @@ def parse_timingPoints_hitObjects(contents):
             break
         line = line.strip()
         parsed_contents.append(line)
+        lines_parsed += 1
     return (lines_parsed, parsed_contents)
+
+
+def split_hitObjects(contents):
+    lines_parsed = 1
+    TimeStamps = []
+    HitObjects = []
+    for line in contents:
+        if line == "\n":
+            break
+        line = line.strip()
+        info = line.split(",")
+        TimeStamps.append(info.pop(2)) #remove the time stamp, append to timestamps
+        HitObjects.append(",".join(info)) #reconstruct the original line without whitespace, and without the timestamps
+        lines_parsed += 1
+    return (lines_parsed, (TimeStamps, HitObjects))
+
+
+
+
+
+
+
+
 
 
 
@@ -166,7 +207,6 @@ def parse_timingPoints_hitObjects(contents):
 
 
 #NOTE: below functions may be unnecessary
-
 def parse_hitObjects(contents):
     '''
     parse through the [HitObjects] Section of the .osu! file
