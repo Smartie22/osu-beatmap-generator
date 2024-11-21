@@ -1,7 +1,6 @@
 '''
 This module will contain the preprocessers that will preprocess all over the data.
 '''
-
 import os
 from torch.utils.data import Dataset
 import librosa
@@ -12,11 +11,24 @@ class BeatmapDataset(Dataset):
     Preprocesses the data while loading them into the dataset
     '''
     def __init__(self):
-        self.__super__()
+       super().__init__()
 
+    def __len__(self):
+        '''
+        return the size of the dataset
+        '''
+        #TODO: override len method 
+        pass
+
+    def __getitem__(self, i):
+        '''
+        retrieve the ith data sample in the dataset
+        '''
+        #TODO: override getitem method so array style indexing is possible
+        pass
 def preprocess_audio():
     '''
-    uses librosa to compute mel-spectrograms
+    use librosa to compute mel-spectrograms
     '''
     pass
 
@@ -92,6 +104,55 @@ def parse_timingPoints_hitObjects(contents):
         line = line.strip()
         parsed_contents.append(line)
     return (lines_parsed, parsed_contents)
+
+def parse_hitObjects(contents):
+    '''
+    parse through the [HitObjects] Section of the .osu! file
+    
+    note that the way an element is parsed depends on the note type
+    '''
+    lines_parsed = 1
+    parsed_contents = []
+
+    for line in contents:
+        if line == "\n":
+            break
+        line = line.strip()
+        info = line.split(',') #type is stored as third element
+
+        #convert value into bit string, determine the type of the current note
+        type = 'c' if format(info[3], '08b')[0] == '1' else ('l' if format(info[3], '08b')[1] == '1' else 's')
+        note_content = {}
+
+        match type:
+            case 'c': #normal circle notes
+               note_content = parse_hitobj_circle(info) 
+            case 'l': #sliders (osu! std long note equivalent)
+               note_content = parse_hitobj_slider(info) 
+            case 's': #spinners
+               note_content = parse_hitobj_spinner(info) 
+
+        parsed_contents.append(note_content)
+    return (lines_parsed, parsed_contents)
+
+def parse_hitobj_circle(info):
+    '''
+
+    '''
+    #TODO
+    pass
+
+def parse_hitobj_slider(info):
+    '''
+
+    '''
+    #TODO
+
+def parse_hitobj_spinner(info):
+    '''
+
+    '''
+    #TODO
 
 #example
 dir = os.path.dirname(__file__)
