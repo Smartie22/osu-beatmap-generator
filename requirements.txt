@@ -1,5 +1,5 @@
 numpy
 pandas
 torch
-matlplotlib>=3.9.2
+matplotlib
 librosa
