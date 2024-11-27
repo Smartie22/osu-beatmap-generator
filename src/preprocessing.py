@@ -41,23 +41,29 @@ class BeatmapDataset(Dataset):
         #iterate over each beatmap in the training data from <root_path>
         i = 0
         for currdir, dirnames, filenames in os.walk(root_path):
+            print(i)
             if i > num_points:
                 break
             for name in filenames:
-                if name.endswith(".osu"): # always process .osu before .mp3
+                print(name)
+                if name.endswith(".opus"): # always process .osu before .mp3
+                    print("found opus")
                     #apply preprocessing on the beatmap
-                    dct = process_beatmap(currdir + "/{0}".format(name))
+                    audio = process_audio(currdir + "/{0}".format(name))
+
                     for name2 in filenames: # directories for specific maps are not very large, this should be fine
-                        if name2.endswith(".mp3"):
+                        print(name2)
+                        if name2.endswith(".osu"):
                             #apply preprocessing on the audio, then combine results
-                            dct["Audio"] = process_audio(currdir + "/{0}".format(name2))
-                            data[i] = dct
-                            i+=1
+                            dct = process_beatmap(currdir + "/{0}".format(name2))
+                            dct["Audio"] = audio
+                            data.append(dct)
+                            i += 1
                 break
 
         #convert list into pytorch tensor
-        data_t = tensor(data)
-        self.data = data_t
+        # data_t = tensor(data)
+        self.data = data
 
     def __len__(self):
         '''
@@ -84,7 +90,7 @@ def process_audio(path):
     '''
     audio, sr = librosa.load(path)
     stft = librosa.stft(audio)
-    melfilter = librosa.feature.melspectrogram(y=stft)
+    melfilter = librosa.feature.melspectrogram(S=stft)
     return melfilter
 
 def process_beatmap(path):
@@ -115,7 +121,7 @@ def process_beatmap(path):
                     dct["TimingPoints"] = parsed_contents
                     i += lines_parsed
                 case "[HitObjects]":
-                    (lines_parsed, parsed_contents) = parse_timingPoints_hitObjects(contents[i+1:])
+                    (lines_parsed, parsed_contents) = split_hitObjects(contents[i+1:])
                     dct["TimeStamps"] = parsed_contents[0]
                     dct["HitObjects"] = parsed_contents[1]
                     i += lines_parsed
@@ -259,6 +265,12 @@ def parse_hitobj_spinner(info):
 
 
 #example usage
+# dir = os.path.dirname(__file__)
+# filename = os.path.join(dir, '..', 'data', '2085341 BUTAOTOME - Street Journal', 'BUTAOTOME - Street Journal (Djulus) [Extra].osu')
+# process_beatmap(filename)
+
 dir = os.path.dirname(__file__)
-filename = os.path.join(dir, '..', 'data', '2085341 BUTAOTOME - Street Journal', 'BUTAOTOME - Street Journal (Djulus) [Extra].osu')
-process_beatmap(filename)
+path = os.path.join(dir, '..', 'data')
+bm = BeatmapDataset(path, 5)
+print(bm.data)
+
