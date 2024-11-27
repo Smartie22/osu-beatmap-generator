@@ -195,7 +195,6 @@ def create_tokens(path, outname):
     with open(outname, 'w') as outfile:
         #(<x>, <y>, <type>, <object_params>)
         mapping = {'bom': 0, 'eom': -1}
-
         for currdir, dirnames, filenames in os.walk(path):
             for name in filenames:
                 if name.endswith('.osu'):
@@ -214,12 +213,20 @@ def parse_objects(currdir, name, dct):
         object_params - unique to sliders ('l' type), '-1' for objects of type 'c' and 's'
     '''
     #TODO
-    #open the .osu file
-    
-    #find where hitobjects section is
-    #while in hitobjects section:
-    #   split line to obtain x,y,type,object_params
-    #   store in dictionary
+    path = os.path.join(currdir, name)
+    with open(path, 'r', encoding='utf-8') as f:
+        line = f.readline()
+        while line != '[HitObjects]\n':
+            line = f.readline()
+        #we are in the hitobjects section
+        while(line != '\n'):
+            #   split line to obtain x,y,type,object_params
+            object = line.strip().split(',')
+            # x @ index 0, y @ idx 1, type @ idx 3, obj_param @ idx 5
+            obj_key = (object[0], object[1], object[3], object[5])
+            #   store in dictionary
+            dct[obj_key] = 1 #TODO: REVISIT THIS        
+            line = f.readline()
 
 #example usage
 # dir = os.path.dirname(__file__)
