@@ -1,6 +1,7 @@
 '''
 This module will contain the preprocessers that will preprocess all over the data.
 '''
+import json
 import os
 from torch.utils.data import Dataset
 from torch import tensor
@@ -32,34 +33,31 @@ class BeatmapDataset(Dataset):
         '''
         super().__init__()
 
-        #TODO: check that this works lol
         #NOTE: this only imports for training set, idk if thats relevant or a problem or anything
 
         #create list which stores each tuple described above
         data = []
 
         #iterate over each beatmap in the training data from <root_path>
-        i = 0
+        num_parsed = 1
         for currdir, dirnames, filenames in os.walk(root_path):
-            print(i)
-            if i > num_points:
+            if num_parsed > num_points:
                 break
             for name in filenames:
-                print(name)
                 if name.endswith(".opus"): # always process .osu before .mp3
-                    print("found opus")
-                    #apply preprocessing on the beatmap
+                    #apply preprocessing on the audio
                     audio = process_audio(currdir + "/{0}".format(name))
 
                     for name2 in filenames: # directories for specific maps are not very large, this should be fine
-                        print(name2)
                         if name2.endswith(".osu"):
-                            #apply preprocessing on the audio, then combine results
+                            #apply preprocessing on the beatmap, combine results
                             dct = process_beatmap(currdir + "/{0}".format(name2))
                             dct["Audio"] = audio
                             data.append(dct)
-                            i += 1
-                break
+                            num_parsed += 1
+                        if num_parsed > num_points:
+                            break
+                    break
 
         #convert list into pytorch tensor
         # data_t = tensor(data)
@@ -76,8 +74,6 @@ class BeatmapDataset(Dataset):
         retrieve the ith data sample in the dataset
         '''
         return self.data[i]
-
-
 
 def process_audio(path):
     '''
@@ -189,80 +185,41 @@ def split_hitObjects(contents):
         lines_parsed += 1
     return (lines_parsed, (TimeStamps, HitObjects))
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#NOTE: below functions may be unnecessary
-def parse_hitObjects(contents):
+def create_tokens(path, outname):
     '''
-    parse through the [HitObjects] Section of the .osu! file
+    Creates a mapping between gameplay object and number,
+
+    NOTE: 0 will be the <bom> (beginning of map) token
+          -1 will be the <eom> (end of map) token
+    '''
+    with open(outname, 'w') as outfile:
+        #(<x>, <y>, <type>, <object_params>)
+        mapping = {'bom': 0, 'eom': -1}
+
+        for currdir, dirnames, filenames in os.walk(path):
+            for name in filenames:
+                if name.endswith('.osu'):
+                    #parse file
+                    parse_objects(currdir, name, mapping)
+        json.dump(mapping, outfile)
+
+def parse_objects(currdir, name, dct):
+    '''
+    takes a path to a .osu file, parses the hitobjects section, and
+    updates the dictionary given by <dct> with key (<x> <y> <type> <object_params>),
+    where...
+        x             - x position on gameplay field, '-1' for 's' types
+        y             - y position on gameplay field, '-1' for 's' types
+        type          - one of {'c', 'l', 's'}
+        object_params - unique to sliders ('l' type), '-1' for objects of type 'c' and 's'
+    '''
+    #TODO
+    #open the .osu file
     
-    note that the way an element is parsed depends on the note type
-    '''
-    lines_parsed = 1
-    parsed_contents = []
-
-    for line in contents:
-        if line == "\n":
-            break
-        line = line.strip()
-        info = line.split(',') #type is stored as third element
-
-        #convert value into bit string, determine the type of the current note
-        type = 'c' if format(info[3], '08b')[0] == '1' else ('l' if format(info[3], '08b')[1] == '1' else 's')
-        note_content = {}
-
-        match type:
-            case 'c': #normal circle notes
-               note_content = parse_hitobj_circle(info) 
-            case 'l': #sliders (osu! std long note equivalent)
-               note_content = parse_hitobj_slider(info) 
-            case 's': #spinners
-               note_content = parse_hitobj_spinner(info) 
-
-        parsed_contents.append(note_content)
-    return (lines_parsed, parsed_contents)
-
-def parse_hitobj_circle(info):
-    '''
-
-    '''
-    #NOTE: may not be necessary
-    pass
-
-def parse_hitobj_slider(info):
-    '''
-
-    '''
-    #NOTE: may not be necessary
-
-def parse_hitobj_spinner(info):
-    '''
-
-    '''
-    #NOTE: may not be necessary
-
-
+    #find where hitobjects section is
+    #while in hitobjects section:
+    #   split line to obtain x,y,type,object_params
+    #   store in dictionary
 
 #example usage
 # dir = os.path.dirname(__file__)
@@ -271,6 +228,5 @@ def parse_hitobj_spinner(info):
 
 dir = os.path.dirname(__file__)
 path = os.path.join(dir, '..', 'data')
-bm = BeatmapDataset(path, 5)
-print(bm.data)
+bm = BeatmapDataset(path)
 
