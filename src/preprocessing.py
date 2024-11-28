@@ -269,7 +269,4 @@ dir = os.path.dirname(__file__)
 path = os.path.join(dir, '..', 'data')
 #bm = BeatmapDataset(path)
 
-start = timeit.timeit()
 create_tokens(path, "test_tokenizer.txt")
-end = timeit.timeit()
-print(end-start)
