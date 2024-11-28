@@ -8,6 +8,8 @@ from torch import tensor
 import librosa
 import numpy as np
 
+import timeit
+
 class BeatmapDataset(Dataset):
     '''
     Preprocesses the data while loading them into the dataset
@@ -190,19 +192,25 @@ def create_tokens(path, outname):
     Creates a mapping between gameplay object and number,
 
     NOTE: 0 will be the <bom> (beginning of map) token
-          -1 will be the <eom> (end of map) token
+          1 will be the <eom> (end of map) token
+          2 will be the <unk> (unknown pattern) token
+
+    NOTE 2: indices correspond to the one hot vector representation,
+            i.e. the index given by the dictionary represents the index in the
+            one hot vector that is set as 1
     '''
     with open(outname, 'w') as outfile:
         #(<x>, <y>, <type>, <object_params>)
-        mapping = {'bom': 0, 'eom': -1}
+        mapping = {'<bom>': 0, '<eom>': 1, '<unk>': 2}
         for currdir, dirnames, filenames in os.walk(path):
             for name in filenames:
                 if name.endswith('.osu'):
                     #parse file
-                    parse_objects(currdir, name, mapping)
+                    idx = [3] # poor man's pointer (global index which needs to be mutated)
+                    parse_objects(currdir, name, mapping, idx)
         json.dump(mapping, outfile)
 
-def parse_objects(currdir, name, dct):
+def parse_objects(currdir, name, dct, glob_idx):
     '''
     takes a path to a .osu file, parses the hitobjects section, and
     updates the dictionary given by <dct> with key (<x> <y> <type> <object_params>),
@@ -219,14 +227,38 @@ def parse_objects(currdir, name, dct):
         while line != '[HitObjects]\n':
             line = f.readline()
         #we are in the hitobjects section
-        while(line != '\n'):
+        line = f.readline() #skip the [HitObjects] header
+        while(line != '\n' or line):
             #   split line to obtain x,y,type,object_params
+            if not line:
+                break
             object = line.strip().split(',')
             # x @ index 0, y @ idx 1, type @ idx 3, obj_param @ idx 5
-            obj_key = (object[0], object[1], object[3], object[5])
+            type = ''
+            bitstring = bin(int(object[3]))
+            if bitstring[-1] == '1':
+                type = 'c'
+            elif bitstring[-2] == '1':
+                type = 'l'
+            elif bitstring[-4] == '1':
+                type = 's'
+            
+            if type == 'c':
+                obj_key = (object[0], object[1], type, '-1')
+                obj_key = ','.join(obj_key)
+            elif type == 's':
+                obj_key = ('-1', '-1', type, '-1')
+                obj_key = ','.join(obj_key)
+            else:
+                obj_key = (str(object[0]), str(object[1]), str(type), str(object[5]))
+                obj_key = ','.join(obj_key)
+
             #   store in dictionary
-            dct[obj_key] = 1 #TODO: REVISIT THIS        
+            if obj_key not in dct:
+                dct[obj_key] = glob_idx[0]     
+                glob_idx[0] = glob_idx[0] + 1
             line = f.readline()
+
 
 #example usage
 # dir = os.path.dirname(__file__)
@@ -235,5 +267,9 @@ def parse_objects(currdir, name, dct):
 
 dir = os.path.dirname(__file__)
 path = os.path.join(dir, '..', 'data')
-bm = BeatmapDataset(path)
+#bm = BeatmapDataset(path)
 
+start = timeit.timeit()
+create_tokens(path, "test_tokenizer.txt")
+end = timeit.timeit()
+print(end-start)
