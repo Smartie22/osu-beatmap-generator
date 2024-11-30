@@ -175,6 +175,7 @@ def parse_timingPoints_hitObjects(contents):
 
 def split_hitObjects(contents):
     lines_parsed = 1
+    #TODO: should these be left as lists, or converted to tensors later ??
     TimeStamps = []
     HitObjects = []
     for line in contents:
@@ -194,6 +195,7 @@ def create_tokens(path, outname):
     NOTE: 0 will be the <bom> (beginning of map) token
           1 will be the <eom> (end of map) token
           2 will be the <unk> (unknown pattern) token
+          3 will be the <pad> (padding) token
 
     NOTE 2: indices correspond to the one hot vector representation,
             i.e. the index given by the dictionary represents the index in the
@@ -201,12 +203,12 @@ def create_tokens(path, outname):
     '''
     with open(outname, 'w') as outfile:
         #(<x>, <y>, <type>, <object_params>)
-        mapping = {'<bom>': 0, '<eom>': 1, '<unk>': 2}
+        mapping = {'<bom>': 0, '<eom>': 1, '<unk>': 2, '<pad>': 3}
         for currdir, dirnames, filenames in os.walk(path):
             for name in filenames:
                 if name.endswith('.osu'):
                     #parse file
-                    idx = [3] # poor man's pointer (global index which needs to be mutated)
+                    idx = [4] # poor man's pointer (global index which needs to be mutated)
                     parse_objects(currdir, name, mapping, idx)
         json.dump(mapping, outfile)
 
