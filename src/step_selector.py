@@ -37,7 +37,7 @@ class StepSelectorEncoder(nn.Module):
         #wordemb is shape (N, S, emb_size)
 
         #h is shape (N,S,hidden_size)
-        #out is shape (?, N, hidden_size)
+        #out is shape (1, N, hidden_size)
         h, out = self.lstm(wordemb) 
         #h is shape (S, hidden_size) where S is the sequence length
         
@@ -59,11 +59,10 @@ class StepSelectorDecoder(nn.Module):
         super(StepSelectorDecoder, self).__init__(self)
         self.token_output_size = output_size
         self.embedding = nn.Embedding(output_size, hidden_size)
-        #TODO: uncertain
         self.lstm = nn.LSTM(hidden_size, hidden_size, batch_first=True)
         #layer to compute probabilities across all tokens
         self.fc = nn.Linear(hidden_size, output_size)
-
+        # output = model(X) is an array probabilities
 
     def forward(self, encoder_out, encoder_hidden, target=None):
         max_seq_len = encoder_out.size(1) #TODO: check if this is right 

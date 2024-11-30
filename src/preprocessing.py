@@ -188,7 +188,7 @@ def split_hitObjects(contents):
         lines_parsed += 1
     return (lines_parsed, (TimeStamps, HitObjects))
 
-def create_tokens(path, outname):
+def create_tokens(path, tok_index_name, index_tok_name):
     '''
     Creates a mapping between gameplay object and number,
 
@@ -201,18 +201,23 @@ def create_tokens(path, outname):
             i.e. the index given by the dictionary represents the index in the
             one hot vector that is set as 1
     '''
-    with open(outname, 'w') as outfile:
-        #(<x>, <y>, <type>, <object_params>)
-        mapping = {'<bom>': 0, '<eom>': 1, '<unk>': 2, '<pad>': 3}
+    # (<x>, <y>, <type>, <object_params>)
+    mapping = {'<bom>': 0, '<eom>': 1, '<unk>': 2, '<pad>': 3}
+    indices = {0: '<bom>', 1: '<eom>', 2: '<unk>', 3: '<pad>'}
+    idx = [4]  # poor man's pointer (global index which needs to be mutated)
+    with open(tok_index_name, 'w') as outfile:
         for currdir, dirnames, filenames in os.walk(path):
             for name in filenames:
                 if name.endswith('.osu'):
                     #parse file
-                    idx = [4] # poor man's pointer (global index which needs to be mutated)
-                    parse_objects(currdir, name, mapping, idx)
+                    parse_objects(currdir, name, mapping, indices, idx)
+
         json.dump(mapping, outfile)
 
-def parse_objects(currdir, name, dct, glob_idx):
+    with open(index_tok_name, 'w') as outfile:
+        json.dump(indices, outfile)
+
+def parse_objects(currdir, name, dct, dct2, glob_idx):
     '''
     takes a path to a .osu file, parses the hitobjects section, and
     updates the dictionary given by <dct> with key (<x> <y> <type> <object_params>),
@@ -222,7 +227,6 @@ def parse_objects(currdir, name, dct, glob_idx):
         type          - one of {'c', 'l', 's'}
         object_params - unique to sliders ('l' type), '-1' for objects of type 'c' and 's'
     '''
-    #TODO
     path = os.path.join(currdir, name)
     with open(path, 'r', encoding='utf-8') as f:
         line = f.readline()
@@ -258,6 +262,7 @@ def parse_objects(currdir, name, dct, glob_idx):
             #   store in dictionary
             if obj_key not in dct:
                 dct[obj_key] = glob_idx[0]     
+                dct2[glob_idx[0]] = obj_key
                 glob_idx[0] = glob_idx[0] + 1
             line = f.readline()
 
@@ -271,4 +276,4 @@ dir = os.path.dirname(__file__)
 path = os.path.join(dir, '..', 'data')
 #bm = BeatmapDataset(path)
 
-create_tokens(path, "test_tokenizer.txt")
+create_tokens(path, "test_tokenizer.txt", "test_indices.txt")
