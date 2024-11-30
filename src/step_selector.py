@@ -59,27 +59,30 @@ class StepSelectorDecoder(nn.Module):
         super(StepSelectorDecoder, self).__init__(self)
         self.token_output_size = output_size
         self.embedding = nn.Embedding(output_size, hidden_size)
-        self.lstm = nn.LSTM(hidden_size, hidden_size, batch_first=True)
+        self.lstm = nn.LSTM(hidden_size, hidden_size, batch_first=True) # Batch_size x Sequence Length x Hidden Size
         #layer to compute probabilities across all tokens
-        self.fc = nn.Linear(hidden_size, output_size)
-        # output = model(X) is an array probabilities
+        self.fc = nn.Linear(hidden_size, output_size) # out: batch x seq x output_size
 
     def forward(self, encoder_out, encoder_hidden, target=None):
         max_seq_len = encoder_out.size(1) #TODO: check if this is right 
         batch_size = encoder_out.size(0)
         decoder_input = torch.empty(batch_size, 1, dtype=torch.long)
         decoder_hidden = encoder_hidden
-        decoder_ouputs = []
+        decoder_outputs = []
 
         i = 0 
         #each output sequence should be as long as the input sequence
         while i < max_seq_len:
             #call forward_step to generate the next token and hidden state
 
+
+
             #update the decoder's input by...
             #1 - if a target vector is given, apply teacher-forcing 
             #2 - use the highest probability token as the next input 
             pass
+            i += 1
+
         #turn the decoder outputs into tensor??
         #return outputs and hidden state
 
