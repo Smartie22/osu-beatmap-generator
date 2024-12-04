@@ -64,6 +64,9 @@ class StepSelectorDecoder(nn.Module):
         self.fc = nn.Linear(hidden_size, output_size) # out: batch x seq x output_size
 
     def forward(self, encoder_out, encoder_hidden, target=None):
+        '''
+        target is shape (N,L), N is batch size, L is max sequence length
+        '''
         max_seq_len = encoder_out.size(1) #TODO: check if this is right 
         batch_size = encoder_out.size(0)
         decoder_input = torch.empty(batch_size, 1, dtype=torch.long)
@@ -74,20 +77,30 @@ class StepSelectorDecoder(nn.Module):
         #each output sequence should be as long as the input sequence
         while i < max_seq_len:
             #call forward_step to generate the next token and hidden state
-
-
+            decoder_output, decoder_hidden = self.forward_step(decoder_input, decoder_hidden)
+            #add token to sequence
+            decoder_outputs.append(decoder_output)
 
             #update the decoder's input by...
             #1 - if a target vector is given, apply teacher-forcing 
+            if target:
+                decoder_input = target[:, i].unsqueeze(1) #(N,1)
             #2 - use the highest probability token as the next input 
-            pass
+            else:
+                _, topi = decoder_output.topk(1)
+                decoder_input = topi.squeeze(-1).detach() #shape is (1) TODO: figure out what .detach() actually does and how it relates 
             i += 1
 
-        #turn the decoder outputs into tensor??
-        #return outputs and hidden state
+        #decoder_outputs is a list containing N elements, each element is a tensor of shape (T,1)
+        decoder_outputs = torch.cat(decoder_outputs, dim = 1) 
+        #decoder_outputs is shape (N,T), N is batch size, T is token size
+        return decoder_outputs, decoder_hidden, None
 
-    def forward_step(self):
-        pass
+    def forward_step(self, input, hidden):
+        output = self.embedding(input)
+        output, hidden = self.lstm(output, hidden)
+        output = self.fc(output)
+        return output
 
 
 
@@ -95,18 +108,6 @@ class StepSelectorDecoder(nn.Module):
 
 
 if __name__ == "__main__":
-    #
-    a = torch.tensor([[1, 2, 3],
-                      [4, 5, 6]])
-    b = torch.tensor([[1.0, 2.0, 3.0],
-                      [4.0, 5.0, 6.0]])
-    print(a.shape)
-    c = torch.amax(a, dim=0)
-    d = torch.mean(b, dim=1)
-    print(c.shape)
-    print(d.shape)
-    print(torch.cat((c,d),axis=-1).shape)
-
-    #model = StepSelectorEncoder()
-    #print(model)
+    model = StepSelectorEncoder()
+    print(model)
 
