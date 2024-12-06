@@ -66,7 +66,7 @@ class StepSelectorDecoder(nn.Module):
         '''
         target is shape (N,L), N is batch size, L is max sequence length
         '''
-        max_seq_len = encoder_out.size(1) #TODO: check if this is right 
+        max_seq_len = encoder_out.size(1)
         batch_size = encoder_out.size(0)
         decoder_input = torch.empty(batch_size, 1, dtype=torch.long)
         decoder_hidden = encoder_hidden
@@ -87,7 +87,7 @@ class StepSelectorDecoder(nn.Module):
             #2 - use the highest probability token as the next input 
             else:
                 _, topi = decoder_output.topk(1)
-                decoder_input = topi.squeeze(-1).detach() #shape is (1) TODO: figure out what .detach() actually does and how it relates 
+                decoder_input = topi.squeeze(-1).detach() #shape is (1)
             i += 1
 
         #decoder_outputs is a list containing N elements, each element is a tensor of shape (T,1)

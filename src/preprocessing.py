@@ -299,7 +299,7 @@ def parse_objects(currdir, name, dct, dct2, glob_idx):
 
 
 def collate_batch_selector(batch):
-    """
+    """ Taking lab10 as inspiration
     X - (N, L) batch of data.
     t - a (N, L) target vector.
     """
