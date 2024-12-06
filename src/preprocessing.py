@@ -3,6 +3,8 @@ This module will contain the preprocessers that will preprocess all over the dat
 '''
 import json
 import os
+
+from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
 from torch import tensor
 import librosa
@@ -14,9 +16,9 @@ class BeatmapDataset(Dataset):
     '''
     Preprocesses the data while loading them into the dataset
     '''
-    def __init__(self, root_path, num_points=10000):
+    def __init__(self, root_path, obj_ind, ind_obj, num_points=10000):
         '''
-        NOTE: 
+        NOTE:
             For the note selection model, we want the map described as follows: 
                 {Audio, General, Difficulty, Events, TimingPoints, TimeStamps, Objects},
             where 
@@ -35,6 +37,10 @@ class BeatmapDataset(Dataset):
         '''
         super().__init__()
 
+        # Assign the obj_ind and the ind_obj
+        self.obj_ind = obj_ind
+        self.ind_obj = ind_obj
+
         #NOTE: this only imports for training set, idk if thats relevant or a problem or anything
 
         #create list which stores each tuple described above
@@ -48,12 +54,12 @@ class BeatmapDataset(Dataset):
             for name in filenames:
                 if name.endswith(".opus"): # always process .osu before .mp3
                     #apply preprocessing on the audio
-                    audio = process_audio(currdir + "/{0}".format(name))
+                    audio = self.process_audio(currdir + "/{0}".format(name))
 
                     for name2 in filenames: # directories for specific maps are not very large, this should be fine
                         if name2.endswith(".osu"):
                             #apply preprocessing on the beatmap, combine results
-                            dct = process_beatmap(currdir + "/{0}".format(name2))
+                            dct = self.process_beatmap(currdir + "/{0}".format(name2))
                             dct["Audio"] = audio
                             data.append(dct)
                             num_parsed += 1
@@ -77,116 +83,141 @@ class BeatmapDataset(Dataset):
         '''
         return self.data[i]
 
-def process_audio(path):
-    '''
-    Compute mel-spectrogram using the librosa library
+    def process_audio(self, path):
+        '''
+        Compute mel-spectrogram using the librosa library
 
-    params:
-        path - relative path to the mp3 audio file for which we apply filtering on
-        dct - dictionary to store the result of filter application
-        key - the corresponding key our filter application should be mapped to in <dct> (SHOULD ALWAYS USE DEFAULT!!!!)
-    '''
-    audio, sr = librosa.load(path)
-    stft = librosa.stft(audio)
-    melfilter = librosa.feature.melspectrogram(S=stft)
-    return melfilter
+        params:
+            path - relative path to the mp3 audio file for which we apply filtering on
+            dct - dictionary to store the result of filter application
+            key - the corresponding key our filter application should be mapped to in <dct> (SHOULD ALWAYS USE DEFAULT!!!!)
+        '''
+        audio, sr = librosa.load(path)
+        stft = librosa.stft(audio)
+        melfilter = librosa.feature.melspectrogram(S=stft)
+        return melfilter
 
-def process_beatmap(path):
-    '''
-    Processes a .osu file into a dictionary containing 
-    '''
-    dct = {}
-    with open(path, 'r', encoding='utf-8') as f:
-        contents = f.readlines()[2:]
-        i = 0 
-        while i < len(contents):
-            line = contents[i].strip('\n')
-            match line:
-                case "[General]":
-                    (lines_parsed, parsed_contents) = parse_gen_diff(contents[i+1:]) 
-                    dct["General"] = parsed_contents
-                    i += lines_parsed
-                case "[Difficulty]":
-                    (lines_parsed, parsed_contents) = parse_gen_diff(contents[i+1:]) 
-                    dct["Difficulty"] = parsed_contents
-                    i += lines_parsed
-                case "[Events]":
-                    (lines_parsed, parsed_contents) = parse_events(contents[i+1:])
-                    dct["Events"] = parsed_contents
-                    i += lines_parsed
-                case "[TimingPoints]":
-                    (lines_parsed, parsed_contents) = parse_timingPoints_hitObjects(contents[i+1:])
-                    dct["TimingPoints"] = parsed_contents
-                    i += lines_parsed
-                case "[HitObjects]":
-                    (lines_parsed, parsed_contents) = split_hitObjects(contents[i+1:])
-                    dct["TimeStamps"] = parsed_contents[0]
-                    dct["HitObjects"] = parsed_contents[1]
-                    i += lines_parsed
-                case _:
-                    i += 1
-    return dct
-                    
-def parse_gen_diff(contents):
-    '''
-    parse through the [General] or [Difficulty] Section of the .osu! file
-    '''
-    lines_parsed = 1 # account for the section header line we already skipped
-    parsed_contents = {}
-    for line in contents:
-        if line == "\n": #reached the end of the section
-            break
-        line = line.strip()
-        parts = line.split(':')
-        parsed_contents[parts[0].strip()] = parts[1].strip()
-        lines_parsed += 1
-    return (lines_parsed, parsed_contents)
+    def process_beatmap(self, path):
+        '''
+        Processes a .osu file into a dictionary containing
+        '''
+        dct = {}
+        with open(path, 'r', encoding='utf-8') as f:
+            contents = f.readlines()[2:]
+            i = 0
+            while i < len(contents):
+                line = contents[i].strip('\n')
+                match line:
+                    case "[General]":
+                        (lines_parsed, parsed_contents) = self.parse_gen_diff(contents[i+1:])
+                        dct["General"] = parsed_contents
+                        i += lines_parsed
+                    case "[Difficulty]":
+                        (lines_parsed, parsed_contents) = self.parse_gen_diff(contents[i+1:])
+                        dct["Difficulty"] = parsed_contents
+                        i += lines_parsed
+                    case "[Events]":
+                        (lines_parsed, parsed_contents) = self.parse_events(contents[i+1:])
+                        dct["Events"] = parsed_contents
+                        i += lines_parsed
+                    case "[TimingPoints]":
+                        (lines_parsed, parsed_contents) = self.parse_timingPoints_hitObjects(contents[i+1:])
+                        dct["TimingPoints"] = parsed_contents
+                        i += lines_parsed
+                    case "[HitObjects]":
+                        (lines_parsed, parsed_contents) = self.split_hitObjects(contents[i+1:])
+                        dct["TimeStamps"] = parsed_contents[0]
+                        dct["HitObjects"] = parsed_contents[1]
+                        i += lines_parsed   # Parse for tokens?
+                    case _:
+                        i += 1
+        return dct
 
-def parse_events(contents):
-    '''
-    parse through the [Events] Section of the .osu! file, storing only the break events in chronological order
-    '''
-    lines_parsed = 1 
-    parsed_contents = []
-    for line in contents:
-        if line == "\n":
-            break
-        line = line.strip()
-        if line[0] == "2" or line[0] == "B":
+    def parse_gen_diff(self, contents):
+        '''
+        parse through the [General] or [Difficulty] Section of the .osu! file
+        '''
+        lines_parsed = 1 # account for the section header line we already skipped
+        parsed_contents = {}
+        for line in contents:
+            if line == "\n": #reached the end of the section
+                break
+            line = line.strip()
+            parts = line.split(':')
+            parsed_contents[parts[0].strip()] = parts[1].strip()
+            lines_parsed += 1
+        return (lines_parsed, parsed_contents)
+
+    def parse_events(self, contents):
+        '''
+        parse through the [Events] Section of the .osu! file, storing only the break events in chronological order
+        '''
+        lines_parsed = 1
+        parsed_contents = []
+        for line in contents:
+            if line == "\n":
+                break
+            line = line.strip()
+            if line[0] == "2" or line[0] == "B":
+                parsed_contents.append(line)
+            lines_parsed += 1
+        return (lines_parsed, parsed_contents)
+
+
+    def parse_timingPoints_hitObjects(self, contents):
+        '''
+        parse through the [TimingPoints] or [HitObjects] Section of the .osu! file
+        '''
+        lines_parsed = 1
+        parsed_contents = []
+        for line in contents:
+            if line == "\n":
+                break
+            line = line.strip()
             parsed_contents.append(line)
-        lines_parsed += 1
-    return (lines_parsed, parsed_contents)
+            lines_parsed += 1
+        return (lines_parsed, parsed_contents)
 
 
-def parse_timingPoints_hitObjects(contents):
-    '''
-    parse through the [TimingPoints] or [HitObjects] Section of the .osu! file
-    '''
-    lines_parsed = 1
-    parsed_contents = []
-    for line in contents:
-        if line == "\n":
-            break
-        line = line.strip()
-        parsed_contents.append(line)
-        lines_parsed += 1
-    return (lines_parsed, parsed_contents)
+    def split_hitObjects(self, contents):
+        lines_parsed = 1
+        #TODO: should these be left as lists, or converted to tensors later ??
+        TimeStamps = []
+        HitObjects = []
+        for line in contents:
+            if line == "\n":
+                break
+            line = line.strip()
+            info = line.split(",") # contains stuff about the hitobjects
+            # x @ index 0, y @ idx 1, type @ idx 3, obj_param @ idx 5
+            type = ''
+            bitstring = bin(int(info[3]))
+            if bitstring[-1] == '1':
+                type = 'c'
+            elif bitstring[-2] == '1':
+                type = 'l'
+            elif bitstring[-4] == '1':
+                type = 's'
 
+            if type == 'c':
+                obj_key = (info[0], info[1], type, '-1')
+                obj_key = ','.join(obj_key)
+            elif type == 's':
+                obj_key = ('-1', '-1', type, '-1')
+                obj_key = ','.join(obj_key)
+            else:
+                obj_key = (str(info[0]), str(info[1]), str(type), str(info[5]))
+                obj_key = ','.join(obj_key)
 
-def split_hitObjects(contents):
-    lines_parsed = 1
-    #TODO: should these be left as lists, or converted to tensors later ??
-    TimeStamps = []
-    HitObjects = []
-    for line in contents:
-        if line == "\n":
-            break
-        line = line.strip()
-        info = line.split(",")
-        TimeStamps.append(info.pop(2)) #remove the time stamp, append to timestamps
-        HitObjects.append(",".join(info)) #reconstruct the original line without whitespace, and without the timestamps
-        lines_parsed += 1
-    return (lines_parsed, (TimeStamps, HitObjects))
+            # If the obj_key is in the index, we assign it
+            index = 2
+            if obj_key in self.obj_ind:
+                index = self.obj_ind[obj_key]
+
+            TimeStamps.append(info.pop(2)) #remove the time stamp, append to timestamps
+            HitObjects.append(index) #reconstruct the original line without whitespace, and without the timestamps
+            lines_parsed += 1
+        return (lines_parsed, (TimeStamps, HitObjects))
 
 def create_tokens(path, tok_index_name, index_tok_name):
     '''
@@ -265,6 +296,27 @@ def parse_objects(currdir, name, dct, dct2, glob_idx):
                 dct2[glob_idx[0]] = obj_key
                 glob_idx[0] = glob_idx[0] + 1
             line = f.readline()
+
+
+def collate_batch_selector(batch):
+    """
+    X - (N, L) batch of data.
+    t - a (N, L) target vector.
+    """
+    hitobj_list = []
+    label_list = []
+    for d in batch:
+        indices = d['HitObjects'].copy()
+        label = indices.copy()
+        indices.insert(0, 0) # prepend bom
+        label.append(1)
+        indices.append(1) # append eom
+        hitobj_list.append(tensor(indices))
+        label_list.append(tensor(label))
+
+    X = pad_sequence(hitobj_list, padding_value=3).transpose(0, 1)
+    t = tensor(label_list)
+    return X, t
 
 
 #example usage
