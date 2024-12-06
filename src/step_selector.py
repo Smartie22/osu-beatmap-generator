@@ -22,8 +22,7 @@ class StepSelectorEncoder(nn.Module):
         #size of hidden vector which represents the information at a given time step of LSTM execution
         self.hidden_size = hidden_size
 
-        #TODO: should padding_idx param be set??
-        self.emb = nn.Embedding(pattern_set_size, emb_size)
+        self.emb = nn.Embedding(pattern_set_size, emb_size, padding_idx=3)
         self.lstm = nn.LSTM(emb_size, hidden_size, batch_first=True)
 
     def forward(self, X):
@@ -58,7 +57,7 @@ class StepSelectorDecoder(nn.Module):
         '''
         super(StepSelectorDecoder, self).__init__(self)
         self.token_output_size = output_size
-        self.embedding = nn.Embedding(output_size, hidden_size)
+        self.embedding = nn.Embedding(output_size, hidden_size, padding_idx=3)
         self.lstm = nn.LSTM(hidden_size, hidden_size, batch_first=True) # Batch_size x Sequence Length x Hidden Size
         #layer to compute probabilities across all tokens
         self.fc = nn.Linear(hidden_size, output_size) # out: batch x seq x output_size
