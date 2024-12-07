@@ -300,8 +300,11 @@ def parse_objects(currdir, name, dct, dct2, glob_idx):
 
 def collate_batch_selector(batch):
     """ Taking lab10 as inspiration
-    X - (N, L) batch of data.
-    t - a (N, L) target vector.
+    X - (N, L) batch of data, input to the encoder.
+    t - a (N, L) target vector with padding.
+
+        N represents batch size
+        L represents length of the longest sequence
     """
     hitobj_list = []
     label_list = []

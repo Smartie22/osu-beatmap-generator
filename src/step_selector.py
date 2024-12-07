@@ -65,6 +65,8 @@ class StepSelectorDecoder(nn.Module):
     def forward(self, encoder_out, encoder_hidden, target=None):
         '''
         target is shape (N,L), N is batch size, L is max sequence length
+
+        #TODO: generate probability to determine whether we use teacher-forcing or not during training?
         '''
         max_seq_len = encoder_out.size(1)
         batch_size = encoder_out.size(0)
