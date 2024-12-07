@@ -323,18 +323,24 @@ def time_tok_convert_helper(element, num_buckets, mapping):
     """ TODO: incomplete
     Take an element of the vector and replace/return it with a token
     """
-    i = math.floor(element * num_buckets)
-    k = f"{i * 1/num_buckets}, {(i + 1) * 1/num_buckets}"
+    if element == 1:
+        return mapping[f"{1-(1/num_buckets)}, 1.0"]
+    i = math.floor(element * num_buckets) 
+    k = f"{i * 1/num_buckets}, {(i + 1) * 1/num_buckets}" 
     return mapping[k]
 
 def time_tok_convert(timestamps, mapping, num_buckets):
     """ Given a sequence of <timestamps> we convert it to a sequence of tokens. Assume that the obj to token file is
     made. TODO: incomplete
     """
-    norm_stamps = normalize(tensor(timestamps, dtype=torch.long))
+    norm_stamps = tensor(timestamps, dtype=torch.float64)
+    #normalize
+    maxval = torch.max(norm_stamps)
+    norm_stamps = norm_stamps / maxval
     # Put the stamps into buckets
-    func = lambda x: time_tok_convert_helper(x, num_buckets, mapping)
-    return torch.Tensor.map_(norm_stamps, func)
+    func = lambda x: (time_tok_convert_helper(x, num_buckets, mapping))
+    print("norm stamps is", norm_stamps)
+    return norm_stamps.apply_(lambda x: (time_tok_convert_helper(x, num_buckets, mapping)))
 
 def collate_batch_selector(batch):
     """ Taking lab10 as inspiration
@@ -369,4 +375,23 @@ dir = os.path.dirname(__file__)
 path = os.path.join(dir, '..', 'data')
 #bm = BeatmapDataset(path)
 
-create_tokens_decoder(path, "test_tokenizer.txt", "test_indices.txt")
+#create_tokens_encoder(os.path.join(dir, "test_encoder_tokens_to_idx.json"), os.path.join(dir, "test_encoder_idx_to_token.json"))
+#create_tokens_decoder(path, os.path.join(dir, "test_tokenizer.json"), os.path.join(dir, "test_indices.json"))
+
+#test
+#load mapping
+tok_to_idx_path = os.path.join(dir, 'test_encoder_tokens_to_idx.json')
+mapping = {}
+with open(tok_to_idx_path) as jfile:
+    mapping = json.load(jfile)
+#print(mapping)
+lst = [2, 5, 14, 18]
+print(time_tok_convert_helper(2/18,10000,mapping))
+print(time_tok_convert_helper(5/18,10000,mapping))
+print(time_tok_convert_helper(14/18,10000,mapping))
+print(time_tok_convert_helper(18/18,10000,mapping))
+
+expected = [time_tok_convert_helper(2/18,10000,mapping), time_tok_convert_helper(5/18,10000,mapping), time_tok_convert_helper(14/18,10000,mapping), time_tok_convert_helper(18/18,10000,mapping)]
+print("expected result is:", expected)
+res = time_tok_convert(lst, mapping, 10000)
+print("actual result is:", res)

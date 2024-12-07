@@ -8,6 +8,7 @@ from preprocessing import collate_batch_selector
 import preprocessing
 
 
+#TODO: do we need to prepend/append beginning of map for the timestamps??
 def get_accuracy(encoder, decoder, dataset, max=1000):
     """
     Calculate the accuracy of our model
