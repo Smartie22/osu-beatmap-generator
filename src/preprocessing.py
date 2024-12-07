@@ -219,7 +219,7 @@ class BeatmapDataset(Dataset):
             lines_parsed += 1
         return (lines_parsed, (TimeStamps, HitObjects))
 
-def create_tokens(path, tok_index_name, index_tok_name):
+def create_tokens_decoder(path, tok_index_name, index_tok_name):
     '''
     Creates a mapping between gameplay object and number,
 
@@ -297,6 +297,24 @@ def parse_objects(currdir, name, dct, dct2, glob_idx):
                 glob_idx[0] = glob_idx[0] + 1
             line = f.readline()
 
+def create_tokens_encoder(tok_index_name, index_tok_name, num_buckets=10000):
+    """ Tokenizer for the encoder. Each bucket: represents a period of time that is of length 1/10000, with the whole
+    field being normalized to fit into those 10000 buckets.
+    TODO: Make num_buckets dynamic based on the song's bpm instead of having it fixed.
+    """
+    mapping = {'<bom>': 0, '<eom>': 1, '<unk>': 2, '<pad>': 3}
+    indices = {0: '<bom>', 1: '<eom>', 2: '<unk>', 3: '<pad>'}
+    for i in range(num_buckets):
+        obj = f"{i * 1/num_buckets}, {(i + 1) * 1/num_buckets}"
+        index = i + 4
+        mapping[obj] = index
+        indices[index] = obj
+
+    # Dump it into a json
+    with open(tok_index_name, 'w') as outfile:
+        json.dump(mapping, outfile)
+    with open(index_tok_name, 'w') as outfile:
+        json.dump(indices, outfile)
 
 def collate_batch_selector(batch):
     """ Taking lab10 as inspiration
@@ -331,4 +349,4 @@ dir = os.path.dirname(__file__)
 path = os.path.join(dir, '..', 'data')
 #bm = BeatmapDataset(path)
 
-create_tokens(path, "test_tokenizer.txt", "test_indices.txt")
+create_tokens_decoder(path, "test_tokenizer.txt", "test_indices.txt")
