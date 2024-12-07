@@ -8,21 +8,21 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class StepSelectorEncoder(nn.Module):
-    def __init__(self, pattern_set_size, emb_size, hidden_size):
+    def __init__(self, bucket_size, emb_size, hidden_size):
         '''
-        pattern_set_size  - number of patterns 
+        bucket_size  - number of tokens for the timestamps
         emb_size    - size of vector which represents a pattern
         hidden_size - size of hidden layers within the LSTM's
         '''
         super(StepSelectorEncoder, self).__init__()
         #equivalent to vocab size in NLP
-        self.pattern_set_size = pattern_set_size
+        self.bucket_size = bucket_size 
         #size of vectors which represent a pattern
         self.emb_size = emb_size 
         #size of hidden vector which represents the information at a given time step of LSTM execution
         self.hidden_size = hidden_size
 
-        self.emb = nn.Embedding(pattern_set_size, emb_size, padding_idx=3)
+        self.emb = nn.Embedding(bucket_size, emb_size, padding_idx=3)
         self.lstm = nn.LSTM(emb_size, hidden_size, batch_first=True)
 
     def forward(self, X):

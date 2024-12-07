@@ -17,6 +17,7 @@ def get_accuracy(encoder, decoder, dataset, max=1000):
     dataloader = DataLoader(dataset, batch_size=1, collate_fn=collate_batch_selector)
 
     for i, (x, t) in enumerate(dataloader):
+        #x is pre-tokenized, t is pre-tokenized
         pass # TODO: Consider what to do with collate batch. Consider what to do with encoder and decoder
 
 

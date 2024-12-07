@@ -169,7 +169,7 @@ class BeatmapDataset(Dataset):
 
     def parse_timingPoints_hitObjects(self, contents):
         '''
-        parse through the [TimingPoints] or [HitObjects] Section of the .osu! file
+        parse through the [TimingPoints] Section of the .osu! file
         '''
         lines_parsed = 1
         parsed_contents = []
@@ -350,18 +350,18 @@ def collate_batch_selector(batch):
         N represents batch size
         L represents length of the longest sequence
     """
-    hitobj_list = []
+    time_seq_list = []
     label_list = []
     for d in batch:
-        indices = d['HitObjects'].copy()
-        label = indices.copy()
-        indices.insert(0, 0) # prepend bom
-        label.append(1)
-        indices.append(1) # append eom
-        hitobj_list.append(tensor(indices))
+        #obtain labels
+        label = d['HitObjects'].copy()
         label_list.append(tensor(label))
 
-    X = pad_sequence(hitobj_list, padding_value=3).transpose(0, 1)
+        #obtain timestamps
+        time_seq = d['TimeStamps'].copy()
+        time_seq_list.append(time_seq)
+
+    X = pad_sequence(time_seq_list, padding_value=3).transpose(0, 1)
     t = tensor(label_list)
     return X, t
 
@@ -375,10 +375,10 @@ dir = os.path.dirname(__file__)
 path = os.path.join(dir, '..', 'data')
 #bm = BeatmapDataset(path)
 
-#create_tokens_encoder(os.path.join(dir, "test_encoder_tokens_to_idx.json"), os.path.join(dir, "test_encoder_idx_to_token.json"))
-#create_tokens_decoder(path, os.path.join(dir, "test_tokenizer.json"), os.path.join(dir, "test_indices.json"))
+create_tokens_encoder(os.path.join(dir, "test_encoder_tokens_to_idx.json"), os.path.join(dir, "test_encoder_idx_to_token.json"))
+create_tokens_decoder(path, os.path.join(dir, "test_tokenizer.json"), os.path.join(dir, "test_indices.json"))
 
-#test
+#test conversion func
 #load mapping
 tok_to_idx_path = os.path.join(dir, 'test_encoder_tokens_to_idx.json')
 mapping = {}
