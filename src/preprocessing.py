@@ -2,11 +2,14 @@
 This module will contain the preprocessers that will preprocess all over the data.
 '''
 import json
+import math
 import os
 
+import torch
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
 from torch import tensor
+from torch.nn.functional import normalize
 import librosa
 import numpy as np
 
@@ -315,6 +318,23 @@ def create_tokens_encoder(tok_index_name, index_tok_name, num_buckets=10000):
         json.dump(mapping, outfile)
     with open(index_tok_name, 'w') as outfile:
         json.dump(indices, outfile)
+
+def time_tok_convert_helper(element, num_buckets, mapping):
+    """ TODO: incomplete
+    Take an element of the vector and replace/return it with a token
+    """
+    i = math.floor(element * num_buckets)
+    k = f"{i * 1/num_buckets}, {(i + 1) * 1/num_buckets}"
+    return mapping[k]
+
+def time_tok_convert(timestamps, mapping, num_buckets):
+    """ Given a sequence of <timestamps> we convert it to a sequence of tokens. Assume that the obj to token file is
+    made. TODO: incomplete
+    """
+    norm_stamps = normalize(tensor(timestamps, dtype=torch.long))
+    # Put the stamps into buckets
+    func = lambda x: time_tok_convert_helper(x, num_buckets, mapping)
+    return torch.Tensor.map_(norm_stamps, func)
 
 def collate_batch_selector(batch):
     """ Taking lab10 as inspiration
