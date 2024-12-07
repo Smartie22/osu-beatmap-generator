@@ -378,7 +378,7 @@ def collate_batch_selector(batch):
         time_seq_list.append(time_seq)
 
     X = pad_sequence(time_seq_list, padding_value=3).transpose(0, 1)
-    t = tensor(label_list)
+    t = tensor(label_list) #TODO: do we add padding here
     return X, t
 
 

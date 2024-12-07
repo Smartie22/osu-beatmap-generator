@@ -19,9 +19,16 @@ def get_accuracy(encoder, decoder, mapping_enc, mapping_dec, dataset, max=1000):
         #x represents the time-stamp sequence, t represents the target hitobject sequence
         #x is pre-tokenized, t is pre-tokenized
         input_token = preprocessing.time_tok_convert(x, mapping_enc, encoder.num_buckets)
-        input_token.append(1) #append end of map token
+        input_token.insert(0, 0) #prepend start of map token
+        #TODO: x is padded, we can't just append end of map to the end.. 
+
+        #(NOTE: lab10 avoids this by having the dataset already contain the indices instead of the tokens themselves, 
+        # may need to reconsider how we initialize the beatmap-dataset)
+        input_token.append(1) #append end of map token 
 
         target_token = preprocessing.hitobject_tok_convert(t, mapping_dec) #TODO: test 
+#        target_token.append(1) #TODO: if t is padded, then we can not just append to the end (same problem as above)
+        
 
         encoder_out, encoder_hd = encoder(input_token)                #TODO: test
         decoder_out, decoder_hd, _ = decoder(encoder_out, encoder_hd) #TODO: test
