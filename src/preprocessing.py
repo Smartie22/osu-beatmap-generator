@@ -331,7 +331,7 @@ def time_tok_convert_helper(element, num_buckets, mapping):
 
 def time_tok_convert(timestamps, mapping, num_buckets):
     """ Given a sequence of <timestamps> we convert it to a sequence of tokens. Assume that the obj to token file is
-    made. TODO: incomplete
+    made.
     """
     norm_stamps = tensor(timestamps, dtype=torch.float64)
     #normalize
@@ -341,6 +341,22 @@ def time_tok_convert(timestamps, mapping, num_buckets):
     func = lambda x: (time_tok_convert_helper(x, num_buckets, mapping))
     print("norm stamps is", norm_stamps)
     return norm_stamps.apply_(lambda x: (time_tok_convert_helper(x, num_buckets, mapping)))
+
+
+def convert_hitobject(element, mapping):
+    """
+    Helper to convert a single hitobject element given by <element> into it's corresponding token via <mapping>
+    """
+
+
+#TODO: please testing !!! 
+def hitobject_tok_convert(hitobjects, mapping):
+    """
+    Convert the sequence of <hitobjects> into a sequence of tokens through the conversion found in <mapping>
+    """
+    objects = tensor(hitobjects)
+    helper = lambda x : (convert_hitobject(x, mapping))
+    return objects.apply_(helper)
 
 def collate_batch_selector(batch):
     """ Taking lab10 as inspiration
@@ -366,6 +382,7 @@ def collate_batch_selector(batch):
     return X, t
 
 
+
 #example usage
 # dir = os.path.dirname(__file__)
 # filename = os.path.join(dir, '..', 'data', '2085341 BUTAOTOME - Street Journal', 'BUTAOTOME - Street Journal (Djulus) [Extra].osu')
@@ -377,6 +394,15 @@ path = os.path.join(dir, '..', 'data')
 
 create_tokens_encoder(os.path.join(dir, "test_encoder_tokens_to_idx.json"), os.path.join(dir, "test_encoder_idx_to_token.json"))
 create_tokens_decoder(path, os.path.join(dir, "test_tokenizer.json"), os.path.join(dir, "test_indices.json"))
+
+
+
+
+
+
+
+
+
 
 #test conversion func
 #load mapping
