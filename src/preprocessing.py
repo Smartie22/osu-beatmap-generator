@@ -184,7 +184,6 @@ class BeatmapDataset(Dataset):
 
     def split_hitObjects(self, contents):
         lines_parsed = 1
-        #TODO: should these be left as lists, or converted to tensors later ??
         TimeStamps = []
         HitObjects = []
         for line in contents:
@@ -320,7 +319,7 @@ def create_tokens_encoder(tok_index_name, index_tok_name, num_buckets=10000):
         json.dump(indices, outfile)
 
 def time_tok_convert_helper(element, num_buckets, mapping):
-    """ TODO: incomplete
+    """
     Take an element of the vector and replace/return it with a token
     """
     if element == 1:
@@ -347,6 +346,7 @@ def convert_hitobject(element, mapping):
     """
     Helper to convert a single hitobject element given by <element> into it's corresponding token via <mapping>
     """
+    return mapping[f"{element}"]
 
 
 #TODO: please testing !!! 
