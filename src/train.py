@@ -64,18 +64,34 @@ def train_selector(encoder,
     try:
         for e in range(num_epochs):
             for i, (X, t) in enumerate(train_loader):
+                optimizer_enc.zero_grad() #clean up accumulated gradients before any calculations
+                optimizer_dec.zero_grad()
+                
                 #produce sequences of logits
                 e_hd, e_out = encoder(X)
-                d_out, d_hd, _ = decoder(e_out, e_hd) #idk if we need the decoder final hidden layer
+                d_out, _, _ = decoder(e_out, e_hd) #idk if we need the decoder final hidden layer
 
-                loss = criteron(d_out, t) #TODO: d_out is a list containing lists of logits, is this fine??
+                # d_out_tensor = tensor([    # t_flatten = tensor([0, 2, 0, 2]) 
+                #   [2.5, 1.2, 0.3],         # t is target index for each list
+                #   [0.2, 1.1, 2.8],
+                #   [1.5, 0.7, 0.6],
+                #   [0.3, 1.5, 2.1]
+                # ])
+
+                # softmax(d_out_tensor) = tensor([
+                #   [0.7859, 0.1749, 0.0392],  # softmax of [2.5, 1.2, 0.3]
+                #   [0.0780, 0.2121, 0.7099],  # softmax of [0.2, 1.1, 2.8]
+                #   [0.6590, 0.2415, 0.0995],  # softmax of [1.5, 0.7, 0.6]
+                #   [0.0970, 0.2626, 0.6404]   # softmax of [0.3, 1.5, 2.1]
+                # ])
+                d_out_tensor = torch.cat([torch.stack(logits) for logits in d_out], dim=0)
+                t_tensor = t.view(-1)
+                loss = criteron(d_out_tensor, t_tensor)
 
                 loss.backward() #propogate gradients
                 optimizer_enc.step() #update params
                 optimizer_dec.step()
-                optimizer_enc.zero_grad() #clean up accumulated gradients for next pass
-                optimizer_dec.zero_grad()
-
+                
                 iter_count += 1
                 if iter_count % plot_every == 0:
                     iters.append(iter_count)
