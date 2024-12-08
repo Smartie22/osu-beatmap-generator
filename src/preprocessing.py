@@ -19,7 +19,7 @@ class BeatmapDataset(Dataset):
     '''
     Preprocesses the data while loading them into the dataset
     '''
-    def __init__(self, root_path, obj_ind, ind_obj, num_points=10000):
+    def __init__(self, root_path, obj_ind_e, ind_obj_e, obj_ind_d, ind_obj_d, num_buckets, num_points=10000):
         '''
         NOTE:
             For the note selection model, we want the map described as follows: 
@@ -40,9 +40,13 @@ class BeatmapDataset(Dataset):
         '''
         super().__init__()
 
-        # Assign the obj_ind and the ind_obj
-        self.obj_ind = obj_ind
-        self.ind_obj = ind_obj
+        # Assign the obj_ind and the ind_obj mappings
+        self.obj_ind_e = obj_ind_e
+        self.ind_obj_e = ind_obj_e
+        self.obj_ind_d = obj_ind_d # Seems like we already had some ideas of passing in the mappings before...
+        self.ind_obj_d = ind_obj_d
+        # Need the number of buckets for translation in the encoder mappings.
+        self.num_buckets = num_buckets
 
         #NOTE: this only imports for training set, idk if thats relevant or a problem or anything
 
@@ -213,13 +217,60 @@ class BeatmapDataset(Dataset):
 
             # If the obj_key is in the index, we assign it
             index = 2
-            if obj_key in self.obj_ind:
-                index = self.obj_ind[obj_key]
+            if obj_key in self.obj_ind_d:
+                index = self.obj_ind_d[obj_key]
 
-            TimeStamps.append(info.pop(2)) #remove the time stamp, append to timestamps
+            TimeStamps.append(int(info.pop(2))) #remove the time stamp, append to timestamps
             HitObjects.append(index) #reconstruct the original line without whitespace, and without the timestamps
             lines_parsed += 1
-        return (lines_parsed, (TimeStamps, HitObjects))
+
+        # Append and prepend start and end tokens.
+        HitObjects.insert(0, 0)
+        HitObjects.append(1)
+
+        TimeStamps_indices = self.time_tok_convert(TimeStamps)
+
+        return (lines_parsed, (TimeStamps_indices, tensor(HitObjects))) # Previously (TimeStamps, HitObjects)
+
+    def time_tok_convert_helper(self, element):
+        """
+        Take an element of the vector and replace/return it with a token
+        """
+        if element == 1:
+            return self.obj_ind_e[f"{1 - (1 / self.num_buckets)}, 1.0"]
+        i = math.floor(element * self.num_buckets)
+        k = f"{i * 1 / self.num_buckets}, {(i + 1) * 1 / self.num_buckets}"
+        return self.obj_ind_e[k]
+
+    def time_tok_convert(self, timestamps):
+        """ Given a sequence of <timestamps> we convert it to a sequence of tokens. Assume that the obj to token file is
+        made.
+        """
+        norm_stamps = tensor(timestamps, dtype=torch.float64)
+        # normalize
+        maxval = torch.max(norm_stamps)
+        norm_stamps = norm_stamps / maxval
+        # Put the stamps into buckets
+        func = lambda x: (self.time_tok_convert_helper(x))
+        tokens = norm_stamps.apply_(lambda x: (self.time_tok_convert_helper(x)))
+        return torch.cat((tensor([0]), tokens, tensor([1]))) # Prepend and append the start and end tokens
+
+    # TODO: We may not need hitobject_tok_convert since we already have the hitobjects tokenized in the split_hitObjects
+    def convert_hitobject(self, element):
+        """
+        Helper to convert a single hitobject element given by <element> into it's corresponding token via <mapping>
+        """
+        return mapping[f"{element}"]
+
+    # TODO: please testing !!!
+    def hitobject_tok_convert(self, hitobjects):
+        """
+        Convert the sequence of <hitobjects> into a sequence of tokens through the conversion found in <mapping>
+        """
+        objects = tensor(hitobjects)
+        helper = lambda x: (self.convert_hitobject(x))
+        tokens = objects.apply_(helper)
+        return torch.cat((tensor([0]), tokens, tensor([1]))) # Prepend and append the start and end tokens
 
 def create_tokens_decoder(path, tok_index_name, index_tok_name):
     '''
@@ -318,45 +369,7 @@ def create_tokens_encoder(tok_index_name, index_tok_name, num_buckets=10000):
     with open(index_tok_name, 'w') as outfile:
         json.dump(indices, outfile)
 
-def time_tok_convert_helper(element, num_buckets, mapping):
-    """
-    Take an element of the vector and replace/return it with a token
-    """
-    if element == 1:
-        return mapping[f"{1-(1/num_buckets)}, 1.0"]
-    i = math.floor(element * num_buckets) 
-    k = f"{i * 1/num_buckets}, {(i + 1) * 1/num_buckets}" 
-    return mapping[k]
 
-def time_tok_convert(timestamps, mapping, num_buckets):
-    """ Given a sequence of <timestamps> we convert it to a sequence of tokens. Assume that the obj to token file is
-    made.
-    """
-    norm_stamps = tensor(timestamps, dtype=torch.float64)
-    #normalize
-    maxval = torch.max(norm_stamps)
-    norm_stamps = norm_stamps / maxval
-    # Put the stamps into buckets
-    func = lambda x: (time_tok_convert_helper(x, num_buckets, mapping))
-    print("norm stamps is", norm_stamps)
-    return norm_stamps.apply_(lambda x: (time_tok_convert_helper(x, num_buckets, mapping)))
-
-
-def convert_hitobject(element, mapping):
-    """
-    Helper to convert a single hitobject element given by <element> into it's corresponding token via <mapping>
-    """
-    return mapping[f"{element}"]
-
-
-#TODO: please testing !!! 
-def hitobject_tok_convert(hitobjects, mapping):
-    """
-    Convert the sequence of <hitobjects> into a sequence of tokens through the conversion found in <mapping>
-    """
-    objects = tensor(hitobjects)
-    helper = lambda x : (convert_hitobject(x, mapping))
-    return objects.apply_(helper)
 
 def collate_batch_selector(batch):
     """ Taking lab10 as inspiration
@@ -370,8 +383,8 @@ def collate_batch_selector(batch):
     label_list = []
     for d in batch:
         #obtain labels
-        label = d['HitObjects'].copy()
-        label_list.append(tensor(label))
+        label = d['HitObjects'].copy() # No need to prepend/append start/end tokens. It's already done for you!
+        label_list.append(label)
 
         #obtain timestamps
         time_seq = d['TimeStamps'].copy()
@@ -411,13 +424,13 @@ mapping = {}
 with open(tok_to_idx_path) as jfile:
     mapping = json.load(jfile)
 #print(mapping)
-lst = [2, 5, 14, 18]
-print(time_tok_convert_helper(2/18,10000,mapping))
-print(time_tok_convert_helper(5/18,10000,mapping))
-print(time_tok_convert_helper(14/18,10000,mapping))
-print(time_tok_convert_helper(18/18,10000,mapping))
-
-expected = [time_tok_convert_helper(2/18,10000,mapping), time_tok_convert_helper(5/18,10000,mapping), time_tok_convert_helper(14/18,10000,mapping), time_tok_convert_helper(18/18,10000,mapping)]
-print("expected result is:", expected)
-res = time_tok_convert(lst, mapping, 10000)
-print("actual result is:", res)
+# lst = [2, 5, 14, 18] # TODO: Feel free to remove all of this since this is just testing the function...
+# print(time_tok_convert_helper(2/18,10000,mapping))
+# print(time_tok_convert_helper(5/18,10000,mapping))
+# print(time_tok_convert_helper(14/18,10000,mapping))
+# print(time_tok_convert_helper(18/18,10000,mapping))
+#
+# expected = [time_tok_convert_helper(2/18,10000,mapping), time_tok_convert_helper(5/18,10000,mapping), time_tok_convert_helper(14/18,10000,mapping), time_tok_convert_helper(18/18,10000,mapping)]
+# print("expected result is:", expected)
+# res = time_tok_convert(lst, mapping, 10000)
+# print("actual result is:", res)
