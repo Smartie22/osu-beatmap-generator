@@ -19,7 +19,7 @@ class BeatmapDataset(Dataset):
     '''
     Preprocesses the data while loading them into the dataset
     '''
-    def __init__(self, root_path, obj_ind_e, ind_obj_e, obj_ind_d, ind_obj_d, num_buckets, num_points=10000):
+    def __init__(self, root_path, time_ind_e, ind_time_e, obj_ind_d, ind_obj_d, num_buckets, num_points=10000):
         '''
         NOTE:
             For the note selection model, we want the map described as follows: 
@@ -41,8 +41,8 @@ class BeatmapDataset(Dataset):
         super().__init__()
 
         # Assign the obj_ind and the ind_obj mappings
-        self.obj_ind_e = obj_ind_e
-        self.ind_obj_e = ind_obj_e
+        self.time_ind_e = time_ind_e
+        self.ind_time_e = ind_time_e
         self.obj_ind_d = obj_ind_d # Seems like we already had some ideas of passing in the mappings before...
         self.ind_obj_d = ind_obj_d
         # Need the number of buckets for translation in the encoder mappings.
@@ -225,7 +225,6 @@ class BeatmapDataset(Dataset):
             lines_parsed += 1
 
         # Append and prepend start and end tokens.
-        HitObjects.insert(0, 0)
         HitObjects.append(1)
 
         TimeStamps_indices = self.time_tok_convert(TimeStamps)
@@ -237,10 +236,10 @@ class BeatmapDataset(Dataset):
         Take an element of the vector and replace/return it with a token
         """
         if element == 1:
-            return self.obj_ind_e[f"{1 - (1 / self.num_buckets)}, 1.0"]
+            return self.time_ind_e[f"{1 - (1 / self.num_buckets)}, 1.0"]
         i = math.floor(element * self.num_buckets)
         k = f"{i * 1 / self.num_buckets}, {(i + 1) * 1 / self.num_buckets}"
-        return self.obj_ind_e[k]
+        return self.time_ind_e[k]
 
     def time_tok_convert(self, timestamps):
         """ Given a sequence of <timestamps> we convert it to a sequence of tokens. Assume that the obj to token file is
@@ -255,14 +254,13 @@ class BeatmapDataset(Dataset):
         tokens = norm_stamps.apply_(lambda x: (self.time_tok_convert_helper(x)))
         return torch.cat((tensor([0]), tokens, tensor([1]))) # Prepend and append the start and end tokens
 
-    # TODO: We may not need hitobject_tok_convert since we already have the hitobjects tokenized in the split_hitObjects
     def convert_hitobject(self, element):
         """
         Helper to convert a single hitobject element given by <element> into it's corresponding token via <mapping>
         """
-        return mapping[f"{element}"]
+        return self.obj_ind_d[f"{element}"]
 
-    # TODO: please testing !!!
+    # TODO: please testing !!! also note that these functions might not even get used
     def hitobject_tok_convert(self, hitobjects):
         """
         Convert the sequence of <hitobjects> into a sequence of tokens through the conversion found in <mapping>
@@ -270,7 +268,7 @@ class BeatmapDataset(Dataset):
         objects = tensor(hitobjects)
         helper = lambda x: (self.convert_hitobject(x))
         tokens = objects.apply_(helper)
-        return torch.cat((tensor([0]), tokens, tensor([1]))) # Prepend and append the start and end tokens
+        return torch.cat((tokens, tensor([1]))) # Prepend and append the start and end tokens
 
 def create_tokens_decoder(path, tok_index_name, index_tok_name):
     '''
@@ -373,7 +371,7 @@ def create_tokens_encoder(tok_index_name, index_tok_name, num_buckets=10000):
 
 def collate_batch_selector(batch):
     """ Taking lab10 as inspiration
-    X - (N, L) batch of data, input to the encoder.
+    X - (N, L) batch of data, input to the encoder, includes padding.
     t - a (N, L) target vector with padding.
 
         N represents batch size
@@ -390,8 +388,9 @@ def collate_batch_selector(batch):
         time_seq = d['TimeStamps'].copy()
         time_seq_list.append(time_seq)
 
+    #pad the sequences
     X = pad_sequence(time_seq_list, padding_value=3).transpose(0, 1)
-    t = tensor(label_list) #TODO: do we add padding here
+    t = pad_sequence(label_list, padding_value=3).transpose(0, 1) 
     return X, t
 
 
@@ -417,14 +416,14 @@ create_tokens_decoder(path, os.path.join(dir, "test_tokenizer.json"), os.path.jo
 
 
 
-#test conversion func
+#NOTE: testing conversion func
 #load mapping
-tok_to_idx_path = os.path.join(dir, 'test_encoder_tokens_to_idx.json')
-mapping = {}
-with open(tok_to_idx_path) as jfile:
-    mapping = json.load(jfile)
+#tok_to_idx_path = os.path.join(dir, 'test_encoder_tokens_to_idx.json')
+#mapping = {}
+#with open(tok_to_idx_path) as jfile:
+#    mapping = json.load(jfile)
 #print(mapping)
-# lst = [2, 5, 14, 18] # TODO: Feel free to remove all of this since this is just testing the function...
+# lst = [2, 5, 14, 18] 
 # print(time_tok_convert_helper(2/18,10000,mapping))
 # print(time_tok_convert_helper(5/18,10000,mapping))
 # print(time_tok_convert_helper(14/18,10000,mapping))
