@@ -120,7 +120,7 @@ def train_selector(encoder,
                     va = get_accuracy(encoder, decoder, val_data)
                     encoder.train()
                     decoder.train()
-                    train_loss.append(loss)
+                    train_loss.append(loss.item())
                     train_acc.append(ta)
                     val_acc.append(va)
                     print("Iteration", iter_count, "Loss:", float(loss), "Train Acc:", ta, "Val Acc:", va)
