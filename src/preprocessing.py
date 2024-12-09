@@ -15,13 +15,13 @@ import librosa
 import numpy as np
 
 import timeit
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 
 class BeatmapDataset(Dataset):
     '''
     Preprocesses the data while loading them into the dataset
     '''
-    def __init__(self, root_path, time_ind_e, ind_time_e, obj_ind_d, ind_obj_d, num_buckets, num_points=10000, num_workers=100):
+    def __init__(self, root_path, time_ind_e, ind_time_e, obj_ind_d, ind_obj_d, num_buckets, num_points=10000, fresh_load=True, num_workers=100):
         '''
         NOTE:
             For the note selection model, we want the map described as follows: 
@@ -55,7 +55,7 @@ class BeatmapDataset(Dataset):
         #NOTE: this only imports for training set, idk if thats relevant or a problem or anything
 
         #create list which stores each tuple described above
-        # data = []
+        data = []
 
         #iterate over each beatmap in the training data from <root_path>
         # num_parsed = 1
@@ -80,37 +80,45 @@ class BeatmapDataset(Dataset):
 
         #convert list into pytorch tensor
         # data_t = tensor(data)
-        self.data = asyncio.run(self.load_data_parallel(root_path, num_points))
+        self.data = asyncio.run(self.load_data_parallel(root_path, num_points)) if fresh_load else self.load_json()
+        # self.data = data
 
+    def load_json(self):
+        pass
+    
     def process_files(self, opus_file, osu_file):
-        audio = self.process_audio(opus_file)
-        beatmap = self.process_beatmap(osu_file)
+        with ThreadPoolExecutor() as executor:
+            future_audio = executor.submit(self.process_audio, opus_file)
+            future_beatmap = executor.submit(self.process_beatmap, osu_file)
+
+        # Collect results
+        audio = future_audio.result()
+        beatmap = future_beatmap.result()
         beatmap["Audio"] = audio
         return beatmap
 
     async def load_data_parallel(self, root_path, num_points):
         data = []
         tasks = []
+        files = []
         loop = asyncio.get_event_loop()
+        batch = 24
+        os.environ["OPENBLAS_NUM_THREADS"] = "24"
+        
 
-        with ThreadPoolExecutor(max_workers=self.num_workers) as executor:
-            for currdir, _, filenames in os.walk(root_path):
-                opus_files = [os.path.join(currdir, f) for f in filenames if f.endswith(".opus")]
-                osu_files = [os.path.join(currdir, f) for f in filenames if f.endswith(".osu")]
+        # with ProcessPoolExecutor(max_workers=61) as executor:
+        for currdir, _, filenames in os.walk(root_path):
+            opus_files = [os.path.join(currdir, f) for f in filenames if f.endswith(".opus")]
+            osu_files = [os.path.join(currdir, f) for f in filenames if f.endswith(".osu")]
 
-                if opus_files and osu_files:
-                    for opus_file in opus_files:
-                        for osu_file in osu_files:
-                            tasks.append(loop.run_in_executor(executor, self.process_files, opus_file, osu_file))
-                            if len(tasks) >= num_points:
-                                break
-                if len(tasks) >= num_points:
-                    break
+            files.extend([(o, s) for o in opus_files for s in osu_files][:num_points])
 
-                results = await asyncio.gather(*tasks, return_exceptions=True) # needs to be true else exceptions will not cancel and will be stuck in hell
-                data = [r for r in results if not isinstance(r, Exception)]
-                            
-            return data
+        for i in range(0, len(files), batch):
+            tasks = [asyncio.to_thread(self.process_files, *pair) for pair in files[i:i+batch]]
+
+            results = await asyncio.gather(*tasks, return_exceptions=True) # needs to be true else exceptions will not cancel and will be stuck in hell
+            data.extend(r for r in results if not isinstance(r, Exception))
+        return data
 
     def __len__(self):
         '''
@@ -133,9 +141,14 @@ class BeatmapDataset(Dataset):
             dct - dictionary to store the result of filter application
             key - the corresponding key our filter application should be mapped to in <dct> (SHOULD ALWAYS USE DEFAULT!!!!)
         '''
-        audio, sr = librosa.load(path)
-        stft = librosa.stft(audio)
-        melfilter = librosa.feature.melspectrogram(S=stft)
+        audio, sr = librosa.load(path, sr=None)
+            
+        # use a more efficient STFT and Mel filter computation
+        stft = librosa.stft(audio, n_fft=1024, hop_length=512, win_length=1024, window='hann')
+        melfilter = librosa.feature.melspectrogram(
+            y=audio, sr=sr, S=np.abs(stft)**2, n_fft=1024, hop_length=512, n_mels=128, power=2.0
+        )
+    
         return melfilter
 
     def process_beatmap(self, path):
