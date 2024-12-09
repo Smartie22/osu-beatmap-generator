@@ -76,13 +76,13 @@ class BeatmapDataset(Dataset):
 
         #convert list into pytorch tensor
         # data_t = tensor(data)
-        self.data = data
+        self.data = np.array(data)
 
     def __len__(self):
         '''
         return the size of the dataset
         '''
-        return len(self.data) # TODO: Consider what structure self.data should have...
+        return self.data.size
 
     def __getitem__(self, i):
         '''
@@ -229,7 +229,7 @@ class BeatmapDataset(Dataset):
 
         TimeStamps_indices = self.time_tok_convert(TimeStamps)
 
-        return (lines_parsed, (TimeStamps_indices, tensor(HitObjects))) # Previously (TimeStamps, HitObjects)
+        return (lines_parsed, (TimeStamps_indices, HitObjects)) # Previously (TimeStamps, HitObjects)
 
     def time_tok_convert_helper(self, element):
         """
@@ -252,7 +252,7 @@ class BeatmapDataset(Dataset):
         # Put the stamps into buckets
         func = lambda x: (self.time_tok_convert_helper(x))
         tokens = norm_stamps.apply_(lambda x: (self.time_tok_convert_helper(x)))
-        return torch.cat((tensor([0]), tokens, tensor([1]))) # Prepend and append the start and end tokens
+        return list(torch.cat((tensor([0]), tokens, tensor([1])))) # Prepend and append the start and end tokens
 
     def convert_hitobject(self, element):
         """
@@ -382,15 +382,15 @@ def collate_batch_selector(batch):
     for d in batch:
         #obtain labels
         label = d['HitObjects'].copy() # No need to prepend/append start/end tokens. It's already done for you!
-        label_list.append(label)
+        label_list.append(tensor(label))
 
         #obtain timestamps
         time_seq = d['TimeStamps'].copy()
-        time_seq_list.append(time_seq)
+        time_seq_list.append(tensor(time_seq))
 
     #pad the sequences
-    X = pad_sequence(time_seq_list, padding_value=3).transpose(0, 1)
-    t = pad_sequence(label_list, padding_value=3).transpose(0, 1) 
+    X = pad_sequence(tensor(time_seq_list), padding_value=3).transpose(0, 1)
+    t = pad_sequence(tensor(label_list), padding_value=3).transpose(0, 1)
     return X, t
 
 

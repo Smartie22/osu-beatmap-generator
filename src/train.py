@@ -130,7 +130,7 @@ def train_models():
 if __name__ == "__main__":
     dir = os.path.dirname(__file__)
     path = os.path.join(dir, '..', 'data')
-
+    print("Creating vocab")
     n_buckets = 10000
     path_tok_ind_e = os.path.join(dir, "test_encoder_tokens_to_idx.json")
     path_ind_tok_e = os.path.join(dir, "test_encoder_idx_to_token.json")
@@ -154,12 +154,12 @@ if __name__ == "__main__":
     ind_tok_d = json.load(fd_ind_tok_d)
 
     # Create datasets
-    print("Creating Datasets") # TODO: Some errors here about the BeatmapDataset list indices must be integers or slices, not list.
+    print("Creating Datasets")
     n_dpoints = 10000
     bm = BeatmapDataset(path, tok_ind_e, ind_tok_e, tok_ind_d, ind_tok_d, n_buckets, n_dpoints)
-    train_set, val_set = torch.utils.data.random_split(bm, [len(bm) - 2000, 2000])
-    test_set = val_set[1000:]
-    val_set = val_set[:1000]
+    train_set = bm.data[:24]
+    val_set = bm.data[24:]
+    test_set = val_set[0]
 
     # Create models
     print("Creating Models")
@@ -167,10 +167,12 @@ if __name__ == "__main__":
     hidden_size_e = 200
     enc = StepSelectorEncoder(n_buckets, emb_size, hidden_size_e)
     hidden_size_d = 300
-    dec = StepSelectorDecoder(len(ind_tok_d.keys()), hidden_size_d)
+    output_size = len(tok_ind_d.keys())
+    dec = StepSelectorDecoder(output_size, hidden_size_d)
 
     # Train models
     print("Training Models")
+    print(len(train_set), len(val_set))
     train_selector(enc, dec, train_set, val_set)
 
     fd_tok_ind_e.close()

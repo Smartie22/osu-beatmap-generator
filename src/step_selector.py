@@ -55,7 +55,7 @@ class StepSelectorDecoder(nn.Module):
 
         note: hidden_size is equal to the size of the <features> vector outputted by the encoder 
         '''
-        super(StepSelectorDecoder, self).__init__(self)
+        super(StepSelectorDecoder, self).__init__()
         self.token_output_size = output_size
         self.embedding = nn.Embedding(output_size, hidden_size, padding_idx=3)
         self.lstm = nn.LSTM(hidden_size, hidden_size, batch_first=True) # Batch_size x Sequence Length x Hidden Size
