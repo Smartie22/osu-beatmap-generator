@@ -196,7 +196,11 @@ if __name__ == "__main__":
     #print(len(train_set), len(val_set))
     train_selector(enc, dec, train_set, val_set, plot_every=1)
 
-    print("done")
+    print("done, exporting models to './encoder.pt' and './decoder.pt'")
+    torch.save(enc, os.path.join(dir, 'encoder.pt'))
+    torch.save(dec, os.path.join(dir, 'decoder.pt'))
+
+
     fd_tok_ind_e.close()
     fd_ind_tok_e.close()
     fd_tok_ind_d.close()
