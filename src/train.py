@@ -135,24 +135,20 @@ def train_selector(encoder,
             plt.title("Loss over iterations")
             plt.xlabel("Iterations")
             plt.ylabel("Loss")
+            plt.savefig("loss_over_iters.png")
 
             plt.figure()
             plt.plot(iters[:len(train_acc)], train_acc)
             plt.plot(iters[:len(val_acc)], val_acc)
             plt.title("Accuracy over iterations")
             plt.xlabel("Iterations")
-            plt.ylabel("Loss")
+            plt.ylabel("Acc")
             plt.legend(["Train", "Validation"])
-
-def train_models():
-    pass
+            plt.savefig("acc_over_iters.png")
 
 
-if __name__ == "__main__":
-    dir = os.path.dirname(__file__)
-    path = os.path.join(dir, '..', 'data')
+def create_vocab_open_token_files(dir, path, n_buckets):
     print("Creating vocab")
-    n_buckets = 10000
     path_tok_ind_e = os.path.join(dir, "test_encoder_tokens_to_idx.json")
     path_ind_tok_e = os.path.join(dir, "test_encoder_idx_to_token.json")
     path_tok_ind_d = os.path.join(dir, "test_tokenizer.json")
@@ -174,34 +170,61 @@ if __name__ == "__main__":
     tok_ind_d = json.load(fd_tok_ind_d)
     ind_tok_d = json.load(fd_ind_tok_d)
 
-    # Create datasets
+    #close files
+    fd_tok_ind_e.close()
+    fd_ind_tok_e.close()
+    fd_tok_ind_d.close()
+    fd_ind_tok_d.close()
+
+
+    #return
+    return tok_ind_e, ind_tok_e, tok_ind_d, ind_tok_d
+
+def create_datasets(path, tok_ind_e, ind_tok_e, tok_ind_d, ind_tok_d, n_dpoints, n_buckets):
     print("Creating Datasets")
-    n_dpoints = 10000
     bm = BeatmapDataset(path, tok_ind_e, ind_tok_e, tok_ind_d, ind_tok_d, n_buckets, n_dpoints)
     train_set = bm.data[:24]
     val_set = bm.data[24:]
     test_set = val_set[0]
+    return train_set, val_set, test_set
+
+def create_models(n_buckets, emb_size, hidden_size_e, hidden_size_d, output_size_d):
+    print("Creating Models")
+    enc = StepSelectorEncoder(n_buckets, emb_size, hidden_size_e)
+    dec = StepSelectorDecoder(output_size_d, hidden_size_d)
+    return enc, dec
+
+def train_models():
+    pass
+
+
+def set_up_and_train():  
+    dir = os.path.dirname(__file__)
+    datapath = os.path.join(dir, '..', 'data')
+    n_buckets = 10000
+    tok_ind_e, ind_tok_e, tok_ind_d, ind_tok_d = create_vocab_open_token_files(dir, datapath, n_buckets)
+
+    n_dpoints = 10000
+    train_set, val_set, test_set = create_datasets(datapath, tok_ind_e, ind_tok_e, tok_ind_d, ind_tok_d, n_dpoints, n_buckets)
+
+    # Create datasets
 
     # Create models
-    print("Creating Models")
     emb_size = 200
     hidden_size_e = 200
-    enc = StepSelectorEncoder(n_buckets, emb_size, hidden_size_e)
     hidden_size_d = hidden_size_e
-    output_size = len(tok_ind_d.keys())
-    dec = StepSelectorDecoder(output_size, hidden_size_d)
+    output_size_d = len(tok_ind_d.keys()) #output size is the number of decoder tokens possible
+    enc, dec = create_models(n_buckets, emb_size, hidden_size_e, hidden_size_d, output_size_d)
 
     # Train models
     print("Training Models")
-    #print(len(train_set), len(val_set))
-    train_selector(enc, dec, train_set, val_set, plot_every=1)
+    train_selector(enc, dec, train_set, val_set, num_epochs=1, plot_every=1)
 
     print("done, exporting models to './encoder.pt' and './decoder.pt'")
     torch.save(enc, os.path.join(dir, 'encoder.pt'))
     torch.save(dec, os.path.join(dir, 'decoder.pt'))
 
 
-    fd_tok_ind_e.close()
-    fd_ind_tok_e.close()
-    fd_tok_ind_d.close()
-    fd_ind_tok_d.close()
+
+if __name__ == "__main__":
+    set_up_and_train()
