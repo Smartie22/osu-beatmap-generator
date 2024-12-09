@@ -92,14 +92,14 @@ class BeatmapDataset(Dataset):
         # Collect results
         audio = future_audio.result()
         beatmap = future_beatmap.result()
-        beatmap["Audio"] = audio
-        return beatmap
+        if beatmap:
+            beatmap["Audio"] = audio
+            return beatmap
 
     async def load_data_parallel(self, root_path, num_points):
         data = []
         tasks = []
         files = []
-        loop = asyncio.get_event_loop()
         batch = 24
         os.environ["OPENBLAS_NUM_THREADS"] = "24"
         
@@ -115,7 +115,7 @@ class BeatmapDataset(Dataset):
             tasks = [asyncio.to_thread(self.process_files, *pair) for pair in files[i:i+batch]]
 
             results = await asyncio.gather(*tasks, return_exceptions=True) # needs to be true else exceptions will not cancel and will be stuck in hell
-            data.extend(r for r in results if not isinstance(r, Exception))
+            data.extend(r for r in results if not isinstance(r, Exception) and r is not None)
         return data
 
     def __len__(self):
@@ -164,6 +164,13 @@ class BeatmapDataset(Dataset):
                         (lines_parsed, parsed_contents) = self.parse_gen_diff(contents[i+1:])
                         dct["General"] = parsed_contents
                         i += lines_parsed
+                        try:
+                            if dct["General"]["Mode"] != "0":
+                                return None
+                        except Exception:
+                            pass
+                        finally:
+                            pass
                     case "[Difficulty]":
                         (lines_parsed, parsed_contents) = self.parse_gen_diff(contents[i+1:])
                         dct["Difficulty"] = parsed_contents
