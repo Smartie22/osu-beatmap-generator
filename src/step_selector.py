@@ -16,13 +16,13 @@ class StepSelectorEncoder(nn.Module):
         '''
         super(StepSelectorEncoder, self).__init__()
         #equivalent to vocab size in NLP
-        self.num_buckets = num_buckets
+        self.num_buckets = num_buckets + 4
         #size of vectors which represent a pattern
         self.emb_size = emb_size 
         #size of hidden vector which represents the information at a given time step of LSTM execution
         self.hidden_size = hidden_size
 
-        self.emb = nn.Embedding(num_buckets, emb_size, padding_idx=3)
+        self.emb = nn.Embedding(self.num_buckets, emb_size, padding_idx=3)
         self.lstm = nn.LSTM(emb_size, hidden_size, batch_first=True)
 
     def forward(self, X):
@@ -37,15 +37,15 @@ class StepSelectorEncoder(nn.Module):
 
         #h is shape (N,S,hidden_size)
         #out is shape (1, N, hidden_size)
-        h, out = self.lstm(wordemb) 
+        out, (h, c) = self.lstm(wordemb)
         #h is shape (S, hidden_size) where S is the sequence length
         
         #amax squishes to shape (1, hidden_size)
         #mean squishes to shape (1, hidden_size) 
-        features = torch.cat([torch.amax(h, dim=1), 
-                              torch.mean(h, dim=1)], axis=-1)
+        # features = torch.cat([torch.amax(h, dim=1),
+        #                       torch.mean(h, dim=1)], axis=-1)
         #features is shape (2 * hidden_size)
-        return features, out #features is the context vector, i.e. initial hidden state for decoder?
+        return h, out #features is the context vector, i.e. initial hidden state for decoder?
     
 class StepSelectorDecoder(nn.Module):
     def __init__(self, output_size, hidden_size):
@@ -57,6 +57,7 @@ class StepSelectorDecoder(nn.Module):
         '''
         super(StepSelectorDecoder, self).__init__()
         self.token_output_size = output_size
+        self.hidden_size = hidden_size
         self.embedding = nn.Embedding(output_size, hidden_size, padding_idx=3)
         self.lstm = nn.LSTM(hidden_size, hidden_size, batch_first=True) # Batch_size x Sequence Length x Hidden Size
         #layer to compute probabilities across all tokens
@@ -68,17 +69,18 @@ class StepSelectorDecoder(nn.Module):
 
         #TODO: generate probability to determine whether we use teacher-forcing or not during training?
         '''
-        max_seq_len = encoder_out.size(1)
+        max_seq_len = encoder_out.size(1) - 1
         batch_size = encoder_out.size(0)
-        decoder_input = torch.empty(batch_size, 1, dtype=torch.long)
+        decoder_input = torch.empty(batch_size, 1, dtype=torch.long).fill_(0)
         decoder_hidden = encoder_hidden
+        decoder_cells = torch.empty(1, batch_size, self.hidden_size, dtype=torch.long).fill_(0)
         decoder_outputs = []
 
         i = 0 
         #each output sequence should be as long as the input sequence
         while i < max_seq_len:
             #call forward_step to generate the next token and hidden state
-            decoder_output, decoder_hidden = self.forward_step(decoder_input, decoder_hidden)
+            decoder_output, decoder_hidden, decoder_cells = self.forward_step(decoder_input, decoder_hidden, decoder_cells)
             #add token to sequence
             decoder_outputs.append(decoder_output)
 
@@ -97,11 +99,11 @@ class StepSelectorDecoder(nn.Module):
         #decoder_outputs is shape (N,T), N is batch size, T is token size
         return decoder_outputs, decoder_hidden, None
 
-    def forward_step(self, input, hidden):
-        output = self.embedding(input)
-        output, hidden = self.lstm(output, hidden)
+    def forward_step(self, input, hidden, cells):
+        output = self.embedding(input)# Size: input_size, hidden_size
+        output, (hidden, cells) = self.lstm(output.type(torch.float32), (hidden.type(torch.float32), cells.type(torch.float32)))
         output = self.fc(output)
-        return output
+        return output, hidden, cells
 
 
 
