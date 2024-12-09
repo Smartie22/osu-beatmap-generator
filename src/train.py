@@ -28,7 +28,7 @@ def get_accuracy(encoder, decoder, dataset, max_samples=1000):
         # x represents the tokenized time-stamp input sequence, 
         # t represents the tokenized target hitobject sequence
 
-        encoder_out, encoder_hd = encoder(x)                          #TODO: test
+        encoder_hd, encoder_out = encoder(x)                          #TODO: test
         decoder_out, _, _ = decoder(encoder_out, encoder_hd) #TODO: test
         
         #lossTODO: determine the accuracy across all tokens generated and their respective targets
@@ -38,10 +38,14 @@ def get_accuracy(encoder, decoder, dataset, max_samples=1000):
         #   list of logits
         #i.e. each element in decoder_out is a list of probabilities
         
-        for target, pred_logits in zip(t.squeeze(0), decoder_out):
-            predicted = torch.stack(pred_logits).argmax(dim=-1)
-            if target == pad_idx:
-                break 
+        for target, pred_logits in zip(t, decoder_out):
+            predicted = pred_logits.argmax(dim=-1)
+            # if target == pad_idx:
+            #     break
+            print(predicted.shape, target.shape)
+            print(predicted)
+            print(target)
+
             if predicted == target:
                 num_correct += 1
             num_total += 1
@@ -75,6 +79,8 @@ def train_selector(encoder,
                 #produce sequences of logits
                 e_hd, e_out = encoder(X)
                 d_out, _, _ = decoder(e_out, e_hd) #idk if we need the decoder final hidden layer
+                d_out = d_out[:, 1:]
+                d_out_tensor = torch.tensor(d_out).transpose(1, 2)
 
                 # d_out_tensor = tensor([    # t_flatten = tensor([0, 2, 0, 2]) 
                 #   [2.5, 1.2, 0.3],         # t is target index for each list
@@ -89,16 +95,17 @@ def train_selector(encoder,
                 #   [0.6590, 0.2415, 0.0995],  # softmax of [1.5, 0.7, 0.6]
                 #   [0.0970, 0.2626, 0.6404]   # softmax of [0.3, 1.5, 2.1]
                 # ])
-                d_out_tensor = torch.cat([torch.stack(logits) for logits in d_out], dim=0)
-                t_tensor = t.view(-1)
+                # d_out_tensor = torch.cat([torch.stack(logits) for logits in d_out], dim=0)
+                t_tensor = t
                 loss = criteron(d_out_tensor, t_tensor)
-
+                loss.requires_grad = True
                 loss.backward() #propogate gradients
                 optimizer_enc.step() #update params
                 optimizer_dec.step()
                 
                 iter_count += 1
                 if iter_count % plot_every == 0:
+                    print("plotting")
                     iters.append(iter_count)
                     ta = get_accuracy(encoder, decoder, train_data)
                     va = get_accuracy(encoder, decoder, val_data)
@@ -166,14 +173,14 @@ if __name__ == "__main__":
     emb_size = 200
     hidden_size_e = 200
     enc = StepSelectorEncoder(n_buckets, emb_size, hidden_size_e)
-    hidden_size_d = 300
+    hidden_size_d = hidden_size_e
     output_size = len(tok_ind_d.keys())
     dec = StepSelectorDecoder(output_size, hidden_size_d)
 
     # Train models
     print("Training Models")
     print(len(train_set), len(val_set))
-    train_selector(enc, dec, train_set, val_set)
+    train_selector(enc, dec, train_set, val_set, plot_every=1)
 
     fd_tok_ind_e.close()
     fd_ind_tok_e.close()

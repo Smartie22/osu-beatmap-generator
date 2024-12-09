@@ -389,8 +389,8 @@ def collate_batch_selector(batch):
         time_seq_list.append(tensor(time_seq))
 
     #pad the sequences
-    X = pad_sequence(tensor(time_seq_list), padding_value=3).transpose(0, 1)
-    t = pad_sequence(tensor(label_list), padding_value=3).transpose(0, 1)
+    X = pad_sequence(time_seq_list, padding_value=3).transpose(0, 1).type(torch.LongTensor)
+    t = pad_sequence(label_list, padding_value=3).transpose(0, 1).type(torch.LongTensor)
     return X, t
 
 
