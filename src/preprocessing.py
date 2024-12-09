@@ -82,7 +82,7 @@ class BeatmapDataset(Dataset):
         '''
         return the size of the dataset
         '''
-        return self.data.size
+        return len(self.data) # TODO: Consider what structure self.data should have...
 
     def __getitem__(self, i):
         '''
@@ -395,41 +395,34 @@ def collate_batch_selector(batch):
 
 
 
-#example usage
-# dir = os.path.dirname(__file__)
-# filename = os.path.join(dir, '..', 'data', '2085341 BUTAOTOME - Street Journal', 'BUTAOTOME - Street Journal (Djulus) [Extra].osu')
-# process_beatmap(filename)
+if __name__ == "__main__": # This is used to ensure some unnecessary code does NOT execute...
+    # example usage
+    # dir = os.path.dirname(__file__)
+    # filename = os.path.join(dir, '..', 'data', '2085341 BUTAOTOME - Street Journal', 'BUTAOTOME - Street Journal (Djulus) [Extra].osu')
+    # process_beatmap(filename)
 
-dir = os.path.dirname(__file__)
-path = os.path.join(dir, '..', 'data')
-#bm = BeatmapDataset(path)
+    dir = os.path.dirname(__file__)
+    path = os.path.join(dir, '..', 'data')
+    # bm = BeatmapDataset(path)
 
-create_tokens_encoder(os.path.join(dir, "test_encoder_tokens_to_idx.json"), os.path.join(dir, "test_encoder_idx_to_token.json"))
-create_tokens_decoder(path, os.path.join(dir, "test_tokenizer.json"), os.path.join(dir, "test_indices.json"))
+    create_tokens_encoder(os.path.join(dir, "test_encoder_tokens_to_idx.json"),
+                          os.path.join(dir, "test_encoder_idx_to_token.json"))
+    create_tokens_decoder(path, os.path.join(dir, "test_tokenizer.json"), os.path.join(dir, "test_indices.json"))
 
-
-
-
-
-
-
-
-
-
-#NOTE: testing conversion func
-#load mapping
-#tok_to_idx_path = os.path.join(dir, 'test_encoder_tokens_to_idx.json')
-#mapping = {}
-#with open(tok_to_idx_path) as jfile:
-#    mapping = json.load(jfile)
-#print(mapping)
-# lst = [2, 5, 14, 18] 
-# print(time_tok_convert_helper(2/18,10000,mapping))
-# print(time_tok_convert_helper(5/18,10000,mapping))
-# print(time_tok_convert_helper(14/18,10000,mapping))
-# print(time_tok_convert_helper(18/18,10000,mapping))
-#
-# expected = [time_tok_convert_helper(2/18,10000,mapping), time_tok_convert_helper(5/18,10000,mapping), time_tok_convert_helper(14/18,10000,mapping), time_tok_convert_helper(18/18,10000,mapping)]
-# print("expected result is:", expected)
-# res = time_tok_convert(lst, mapping, 10000)
-# print("actual result is:", res)
+    # NOTE: testing conversion func
+    # load mapping
+    # tok_to_idx_path = os.path.join(dir, 'test_encoder_tokens_to_idx.json')
+    # mapping = {}
+    # with open(tok_to_idx_path) as jfile:
+    #    mapping = json.load(jfile)
+    # print(mapping)
+    # lst = [2, 5, 14, 18]
+    # print(time_tok_convert_helper(2/18,10000,mapping))
+    # print(time_tok_convert_helper(5/18,10000,mapping))
+    # print(time_tok_convert_helper(14/18,10000,mapping))
+    # print(time_tok_convert_helper(18/18,10000,mapping))
+    #
+    # expected = [time_tok_convert_helper(2/18,10000,mapping), time_tok_convert_helper(5/18,10000,mapping), time_tok_convert_helper(14/18,10000,mapping), time_tok_convert_helper(18/18,10000,mapping)]
+    # print("expected result is:", expected)
+    # res = time_tok_convert(lst, mapping, 10000)
+    # print("actual result is:", res)

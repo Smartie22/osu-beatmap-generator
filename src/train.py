@@ -1,12 +1,15 @@
 '''
 This module will be where all training is structured and done. Will import from the other modules.
 '''
+import json
+import os
 
 import matplotlib.pyplot as plt
 import torch
 from torch.utils.data import DataLoader
-from preprocessing import collate_batch_selector
+from preprocessing import collate_batch_selector, BeatmapDataset
 import preprocessing
+from step_selector import StepSelectorEncoder, StepSelectorDecoder
 
 
 def get_accuracy(encoder, decoder, dataset, max_samples=1000):
@@ -122,3 +125,55 @@ def train_selector(encoder,
 
 def train_models():
     pass
+
+
+if __name__ == "__main__":
+    dir = os.path.dirname(__file__)
+    path = os.path.join(dir, '..', 'data')
+
+    n_buckets = 10000
+    path_tok_ind_e = os.path.join(dir, "test_encoder_tokens_to_idx.json")
+    path_ind_tok_e = os.path.join(dir, "test_encoder_idx_to_token.json")
+    path_tok_ind_d = os.path.join(dir, "test_tokenizer.json")
+    path_ind_tok_d = os.path.join(dir, "test_indices.json")
+
+    if not os.path.exists(path_tok_ind_e) or not os.path.exists(path_ind_tok_e):
+        preprocessing.create_tokens_encoder(path_tok_ind_e, path_ind_tok_e, n_buckets)
+    if not os.path.exists(path_tok_ind_d) or not os.path.exists(path_ind_tok_d):
+        preprocessing.create_tokens_decoder(path, path_tok_ind_d, path_ind_tok_d)
+
+    # open the files here
+    print("Opening Files")
+    fd_tok_ind_e = open(path_tok_ind_e,)
+    fd_ind_tok_e = open(path_ind_tok_e,)
+    fd_tok_ind_d = open(path_tok_ind_d,)
+    fd_ind_tok_d = open(path_ind_tok_d,)
+    tok_ind_e = json.load(fd_tok_ind_e)
+    ind_tok_e = json.load(fd_ind_tok_e)
+    tok_ind_d = json.load(fd_tok_ind_d)
+    ind_tok_d = json.load(fd_ind_tok_d)
+
+    # Create datasets
+    print("Creating Datasets") # TODO: Some errors here about the BeatmapDataset list indices must be integers or slices, not list.
+    n_dpoints = 10000
+    bm = BeatmapDataset(path, tok_ind_e, ind_tok_e, tok_ind_d, ind_tok_d, n_buckets, n_dpoints)
+    train_set, val_set = torch.utils.data.random_split(bm, [len(bm) - 2000, 2000])
+    test_set = val_set[1000:]
+    val_set = val_set[:1000]
+
+    # Create models
+    print("Creating Models")
+    emb_size = 200
+    hidden_size_e = 200
+    enc = StepSelectorEncoder(n_buckets, emb_size, hidden_size_e)
+    hidden_size_d = 300
+    dec = StepSelectorDecoder(len(ind_tok_d.keys()), hidden_size_d)
+
+    # Train models
+    print("Training Models")
+    train_selector(enc, dec, train_set, val_set)
+
+    fd_tok_ind_e.close()
+    fd_ind_tok_e.close()
+    fd_tok_ind_d.close()
+    fd_ind_tok_d.close()
