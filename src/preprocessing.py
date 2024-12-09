@@ -4,6 +4,7 @@ This module will contain the preprocessers that will preprocess all over the dat
 import json
 import math
 import os
+import asyncio
 
 import torch
 from torch.nn.utils.rnn import pad_sequence
@@ -14,12 +15,13 @@ import librosa
 import numpy as np
 
 import timeit
+from concurrent.futures import ThreadPoolExecutor
 
 class BeatmapDataset(Dataset):
     '''
     Preprocesses the data while loading them into the dataset
     '''
-    def __init__(self, root_path, time_ind_e, ind_time_e, obj_ind_d, ind_obj_d, num_buckets, num_points=10000):
+    def __init__(self, root_path, time_ind_e, ind_time_e, obj_ind_d, ind_obj_d, num_buckets, num_points=10000, num_workers=100):
         '''
         NOTE:
             For the note selection model, we want the map described as follows: 
@@ -48,41 +50,73 @@ class BeatmapDataset(Dataset):
         # Need the number of buckets for translation in the encoder mappings.
         self.num_buckets = num_buckets
 
+        self.num_workers = num_workers
+
         #NOTE: this only imports for training set, idk if thats relevant or a problem or anything
 
         #create list which stores each tuple described above
-        data = []
+        # data = []
 
         #iterate over each beatmap in the training data from <root_path>
-        num_parsed = 1
-        for currdir, dirnames, filenames in os.walk(root_path):
-            if num_parsed > num_points:
-                break
-            for name in filenames:
-                if name.endswith(".opus"): # always process .osu before .mp3
-                    #apply preprocessing on the audio
-                    audio = self.process_audio(currdir + "/{0}".format(name))
+        # num_parsed = 1
+        # for currdir, dirnames, filenames in os.walk(root_path):
+        #     if num_parsed > num_points:
+        #         break
+        #     for name in filenames:
+        #         if name.endswith(".opus"): # always process .osu before .mp3
+        #             #apply preprocessing on the audio
+        #             audio = self.process_audio(currdir + "/{0}".format(name))
 
-                    for name2 in filenames: # directories for specific maps are not very large, this should be fine
-                        if name2.endswith(".osu"):
-                            #apply preprocessing on the beatmap, combine results
-                            dct = self.process_beatmap(currdir + "/{0}".format(name2))
-                            dct["Audio"] = audio
-                            data.append(dct)
-                            num_parsed += 1
-                        if num_parsed > num_points:
-                            break
-                    break
+        #             for name2 in filenames: # directories for specific maps are not very large, this should be fine
+        #                 if name2.endswith(".osu"):
+        #                     #apply preprocessing on the beatmap, combine results
+        #                     dct = self.process_beatmap(currdir + "/{0}".format(name2))
+        #                     dct["Audio"] = audio
+        #                     data.append(dct)
+        #                     num_parsed += 1
+        #                 if num_parsed > num_points:
+        #                     break
+        #             break
 
         #convert list into pytorch tensor
         # data_t = tensor(data)
-        self.data = np.array(data)
+        self.data = asyncio.run(self.load_data_parallel(root_path, num_points))
+
+    def process_files(self, opus_file, osu_file):
+        audio = self.process_audio(opus_file)
+        beatmap = self.process_beatmap(osu_file)
+        beatmap["Audio"] = audio
+        return beatmap
+
+    async def load_data_parallel(self, root_path, num_points):
+        data = []
+        tasks = []
+        loop = asyncio.get_event_loop()
+
+        with ThreadPoolExecutor(max_workers=self.num_workers) as executor:
+            for currdir, _, filenames in os.walk(root_path):
+                opus_files = [os.path.join(currdir, f) for f in filenames if f.endswith(".opus")]
+                osu_files = [os.path.join(currdir, f) for f in filenames if f.endswith(".osu")]
+
+                if opus_files and osu_files:
+                    for opus_file in opus_files:
+                        for osu_file in osu_files:
+                            tasks.append(loop.run_in_executor(executor, self.process_files, opus_file, osu_file))
+                            if len(tasks) >= num_points:
+                                break
+                if len(tasks) >= num_points:
+                    break
+
+                results = await asyncio.gather(*tasks, return_exceptions=True) # needs to be true else exceptions will not cancel and will be stuck in hell
+                data = [r for r in results if not isinstance(r, Exception)]
+                            
+            return data
 
     def __len__(self):
         '''
         return the size of the dataset
         '''
-        return self.data.size
+        return len(self.data) # TODO: Consider what structure self.data should have...
 
     def __getitem__(self, i):
         '''
@@ -110,7 +144,8 @@ class BeatmapDataset(Dataset):
         '''
         dct = {}
         with open(path, 'r', encoding='utf-8') as f:
-            contents = f.readlines()[2:]
+            contents = f.readlines()
+            contents = contents[2:]
             i = 0
             while i < len(contents):
                 line = contents[i].strip('\n')
@@ -229,7 +264,7 @@ class BeatmapDataset(Dataset):
 
         TimeStamps_indices = self.time_tok_convert(TimeStamps)
 
-        return (lines_parsed, (TimeStamps_indices, HitObjects)) # Previously (TimeStamps, HitObjects)
+        return (lines_parsed, (TimeStamps_indices, tensor(HitObjects))) # Previously (TimeStamps, HitObjects)
 
     def time_tok_convert_helper(self, element):
         """
@@ -252,7 +287,7 @@ class BeatmapDataset(Dataset):
         # Put the stamps into buckets
         func = lambda x: (self.time_tok_convert_helper(x))
         tokens = norm_stamps.apply_(lambda x: (self.time_tok_convert_helper(x)))
-        return list(torch.cat((tensor([0]), tokens, tensor([1])))) # Prepend and append the start and end tokens
+        return torch.cat((tensor([0]), tokens, tensor([1]))) # Prepend and append the start and end tokens
 
     def convert_hitobject(self, element):
         """
@@ -382,15 +417,15 @@ def collate_batch_selector(batch):
     for d in batch:
         #obtain labels
         label = d['HitObjects'].copy() # No need to prepend/append start/end tokens. It's already done for you!
-        label_list.append(tensor(label))
+        label_list.append(label)
 
         #obtain timestamps
         time_seq = d['TimeStamps'].copy()
-        time_seq_list.append(tensor(time_seq))
+        time_seq_list.append(time_seq)
 
     #pad the sequences
-    X = pad_sequence(tensor(time_seq_list), padding_value=3).transpose(0, 1)
-    t = pad_sequence(tensor(label_list), padding_value=3).transpose(0, 1)
+    X = pad_sequence(time_seq_list, padding_value=3).transpose(0, 1)
+    t = pad_sequence(label_list, padding_value=3).transpose(0, 1) 
     return X, t
 
 
