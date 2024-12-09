@@ -16,6 +16,8 @@ def get_accuracy(encoder, decoder, dataset, max_samples=1000):
     """
     Calculate the accuracy of our model
     """
+    encoder.eval()
+    decoder.eval()
     dataloader = DataLoader(dataset,
                             batch_size=1,
                             collate_fn=collate_batch_selector)
@@ -74,6 +76,8 @@ def train_selector(encoder,
     iter_count = 0
     try:
         print("---------------------------------------------------------------------------\nbeginning training\nbatchsize is", batch_size, "num_epochs is", num_epochs, "we plot every", plot_every, "data points\n---------------------------------------------------------------------------\n")
+        encoder.train()
+        decoder.train()
         for e in range(num_epochs):
             for i, (X, t) in enumerate(train_loader):
                 print("training loop:", i, "epoch:", e)
@@ -103,6 +107,8 @@ def train_selector(encoder,
                 loss = criteron(d_out_tensor, t_tensor)
 #                loss.requires_grad = True
                 loss.backward() #propogate gradients
+                torch.nn.utils.clip_grad_value_(encoder.parameters(), 0.8)
+                torch.nn.utils.clip_grad_value_(decoder.parameters(), 0.8)
                 optimizer_enc.step() #update params
                 optimizer_dec.step()
                 
@@ -112,6 +118,8 @@ def train_selector(encoder,
                     iters.append(iter_count)
                     ta = get_accuracy(encoder, decoder, train_data)
                     va = get_accuracy(encoder, decoder, val_data)
+                    encoder.train()
+                    decoder.train()
                     train_loss.append(loss)
                     train_acc.append(ta)
                     val_acc.append(va)
