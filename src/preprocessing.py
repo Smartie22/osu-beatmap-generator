@@ -4,6 +4,7 @@ This module will contain the preprocessers that will preprocess all over the dat
 import json
 import math
 import os
+import asyncio
 
 import torch
 from torch.nn.utils.rnn import pad_sequence
@@ -52,29 +53,28 @@ class BeatmapDataset(Dataset):
         #NOTE: this only imports for training set, idk if thats relevant or a problem or anything
 
         #create list which stores each tuple described above
-        data = []
-        data = []
+        # data = []
 
         #iterate over each beatmap in the training data from <root_path>
-        num_parsed = 1
-        for currdir, dirnames, filenames in os.walk(root_path):
-            if num_parsed > num_points:
-                break
-            for name in filenames:
-                if name.endswith(".opus"): # always process .osu before .mp3
-                    #apply preprocessing on the audio
-                    audio = self.process_audio(currdir + "/{0}".format(name))
+        # num_parsed = 1
+        # for currdir, dirnames, filenames in os.walk(root_path):
+        #     if num_parsed > num_points:
+        #         break
+        #     for name in filenames:
+        #         if name.endswith(".opus"): # always process .osu before .mp3
+        #             #apply preprocessing on the audio
+        #             audio = self.process_audio(currdir + "/{0}".format(name))
 
-                    for name2 in filenames: # directories for specific maps are not very large, this should be fine
-                        if name2.endswith(".osu"):
-                            #apply preprocessing on the beatmap, combine results
-                            dct = self.process_beatmap(currdir + "/{0}".format(name2))
-                            dct["Audio"] = audio
-                            data.append(dct)
-                            num_parsed += 1
-                        if num_parsed > num_points:
-                            break
-                    break
+        #             for name2 in filenames: # directories for specific maps are not very large, this should be fine
+        #                 if name2.endswith(".osu"):
+        #                     #apply preprocessing on the beatmap, combine results
+        #                     dct = self.process_beatmap(currdir + "/{0}".format(name2))
+        #                     dct["Audio"] = audio
+        #                     data.append(dct)
+        #                     num_parsed += 1
+        #                 if num_parsed > num_points:
+        #                     break
+        #             break
 
         #convert list into pytorch tensor
         # data_t = tensor(data)
