@@ -42,16 +42,17 @@ def get_accuracy(encoder, decoder, dataset, max_samples=1000):
             predicted = pred_logits.argmax(dim=-1)
             # if target == pad_idx:
             #     break
-            print(predicted.shape, target.shape)
-            print(predicted)
-            print(target)
+            #print(predicted.shape, target.shape)
+            #print(predicted)
+            #print("target is", target)
 
             num_correct += int(torch.sum(target == predicted)) # TODO: Not sure if this is right
             # if predicted == target:
             #     num_correct += 1
-            num_total += 1
+            num_total += target.size(0)
 
     #return accuracy
+    print("correct:", num_correct, "total:", num_total)
     return num_correct / num_total if num_total > 0 else 0
         
 def train_selector(encoder, 
@@ -59,8 +60,8 @@ def train_selector(encoder,
                    train_data, 
                    val_data, 
                    learning_rate = 0.001, 
-                   batch_size = 100, 
-                   num_epochs = 10, 
+                   batch_size = 10, 
+                   num_epochs = 100, 
                    plot_every = 50, 
                    plot = True):
       
@@ -72,15 +73,17 @@ def train_selector(encoder,
     iters, train_loss, train_acc, val_acc = [], [], [], [] 
     iter_count = 0
     try:
+        print("---------------------------------------------------------------------------\nbeginning training\nbatchsize is", batch_size, "num_epochs is", num_epochs, "we plot every", plot_every, "data points\n---------------------------------------------------------------------------\n")
         for e in range(num_epochs):
             for i, (X, t) in enumerate(train_loader):
+                print("training loop:", i, "epoch:", e)
                 optimizer_enc.zero_grad() #clean up accumulated gradients before any calculations
                 optimizer_dec.zero_grad()
                 
                 #produce sequences of logits
                 e_hd, e_out = encoder(X)
                 d_out, _, _ = decoder(e_out, e_hd) #idk if we need the decoder final hidden layer
-                d_out_tensor = torch.tensor(d_out).transpose(1, 2)
+                d_out_tensor = d_out.transpose(1, 2)
 
                 # d_out_tensor = tensor([    # t_flatten = tensor([0, 2, 0, 2]) 
                 #   [2.5, 1.2, 0.3],         # t is target index for each list
@@ -98,14 +101,14 @@ def train_selector(encoder,
                 # d_out_tensor = torch.cat([torch.stack(logits) for logits in d_out], dim=0)
                 t_tensor = t
                 loss = criteron(d_out_tensor, t_tensor)
-                loss.requires_grad = True
+#                loss.requires_grad = True
                 loss.backward() #propogate gradients
                 optimizer_enc.step() #update params
                 optimizer_dec.step()
                 
                 iter_count += 1
                 if iter_count % plot_every == 0:
-                    print("plotting")
+                    #print("calculating accuracy")
                     iters.append(iter_count)
                     ta = get_accuracy(encoder, decoder, train_data)
                     va = get_accuracy(encoder, decoder, val_data)
@@ -113,9 +116,12 @@ def train_selector(encoder,
                     train_acc.append(ta)
                     val_acc.append(va)
                     print("Iteration", iter_count, "Loss:", float(loss), "Train Acc:", ta, "Val Acc:", va)
-                    pass
+    except e:
+        print("ERROR !!!!!")
+        print(e)
     finally:
         if plot:
+            print("plotting")
             plt.figure()
             plt.plot(iters[:len(train_loss)], train_loss)
             plt.title("Loss over iterations")
@@ -179,9 +185,10 @@ if __name__ == "__main__":
 
     # Train models
     print("Training Models")
-    print(len(train_set), len(val_set))
+    #print(len(train_set), len(val_set))
     train_selector(enc, dec, train_set, val_set, plot_every=1)
 
+    print("done")
     fd_tok_ind_e.close()
     fd_ind_tok_e.close()
     fd_tok_ind_d.close()

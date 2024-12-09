@@ -79,7 +79,7 @@ class BeatmapDataset(Dataset):
         #convert list into pytorch tensor
         # data_t = tensor(data)
         self.data = asyncio.run(self.load_data_parallel(root_path, num_points)) if fresh_load else self.load_json()
-        # self.data = data
+        self.data = np.array(self.data)
 
     def load_json(self):
         pass
@@ -304,7 +304,9 @@ class BeatmapDataset(Dataset):
         # Put the stamps into buckets
         func = lambda x: (self.time_tok_convert_helper(x))
         tokens = norm_stamps.apply_(lambda x: (self.time_tok_convert_helper(x)))
-        return list(torch.cat((tensor([0]), tokens, tensor([1])))) # Prepend and append the start and end tokens
+
+        #TODO: reconsider whether we need both start AND end of song tokens pre+appended, or just the end of song token appended
+        return torch.cat((tensor([0]), tokens, tensor([1]))).tolist() # Prepend and append the start and end tokens
 
     def convert_hitobject(self, element):
         """
@@ -443,38 +445,69 @@ def collate_batch_selector(batch):
     #pad the sequences
     X = pad_sequence(time_seq_list, padding_value=3).transpose(0, 1).type(torch.LongTensor)
     t = pad_sequence(label_list, padding_value=3).transpose(0, 1).type(torch.LongTensor)
+
+
+#    #torch.set_printoptions(profile="full")
+#    #z=2
+#    #print("in collate_fn, t at index", z, "is:", t[z])
+    
+    
     return X, t
 
 
 
 if __name__ == "__main__": # This is used to ensure some unnecessary code does NOT execute...
     # example usage
-    # dir = os.path.dirname(__file__)
-    # filename = os.path.join(dir, '..', 'data', '2085341 BUTAOTOME - Street Journal', 'BUTAOTOME - Street Journal (Djulus) [Extra].osu')
-    # process_beatmap(filename)
-
+#    dir = os.path.dirname(__file__)
+#    filename = os.path.join(dir, '..', 'data', '2085341 BUTAOTOME - Street Journal', 'BUTAOTOME - Street Journal (Djulus) [Extra].osu')
+#    process_beatmap(filename 
     dir = os.path.dirname(__file__)
     path = os.path.join(dir, '..', 'data')
-    # bm = BeatmapDataset(path)
+
+    path_tok_ind_e = os.path.join(dir, "test_encoder_tokens_to_idx.json")
+    path_ind_tok_e = os.path.join(dir, "test_encoder_idx_to_token.json")
+    path_tok_ind_d = os.path.join(dir, "test_tokenizer.json")
+    path_ind_tok_d = os.path.join(dir, "test_indices.json")
+
+    fd_tok_ind_e = open(path_tok_ind_e,)
+    fd_ind_tok_e = open(path_ind_tok_e,)
+    fd_tok_ind_d = open(path_tok_ind_d,)
+    fd_ind_tok_d = open(path_ind_tok_d,)
+    tok_ind_e = json.load(fd_tok_ind_e)
+    ind_tok_e = json.load(fd_ind_tok_e)
+    tok_ind_d = json.load(fd_tok_ind_d)
+    ind_tok_d = json.load(fd_ind_tok_d)
 
     create_tokens_encoder(os.path.join(dir, "test_encoder_tokens_to_idx.json"),
                           os.path.join(dir, "test_encoder_idx_to_token.json"))
     create_tokens_decoder(path, os.path.join(dir, "test_tokenizer.json"), os.path.join(dir, "test_indices.json"))
 
+    bm = BeatmapDataset(path, tok_ind_e, ind_tok_e, tok_ind_d, ind_tok_d, 10000)
+
     # NOTE: testing conversion func
     # load mapping
-    # tok_to_idx_path = os.path.join(dir, 'test_encoder_tokens_to_idx.json')
-    # mapping = {}
-    # with open(tok_to_idx_path) as jfile:
-    #    mapping = json.load(jfile)
-    # print(mapping)
-    # lst = [2, 5, 14, 18]
-    # print(time_tok_convert_helper(2/18,10000,mapping))
-    # print(time_tok_convert_helper(5/18,10000,mapping))
-    # print(time_tok_convert_helper(14/18,10000,mapping))
-    # print(time_tok_convert_helper(18/18,10000,mapping))
-    #
-    # expected = [time_tok_convert_helper(2/18,10000,mapping), time_tok_convert_helper(5/18,10000,mapping), time_tok_convert_helper(14/18,10000,mapping), time_tok_convert_helper(18/18,10000,mapping)]
-    # print("expected result is:", expected)
-    # res = time_tok_convert(lst, mapping, 10000)
-    # print("actual result is:", res)
+#     tok_to_idx_path = os.path.join(dir, 'test_encoder_tokens_to_idx.json')
+#     mapping = {}
+#     with open(tok_to_idx_path) as jfile:
+#        mapping = json.load(jfile)
+#     print(mapping)
+#     lst = [2, 5, 14, 18]
+#     print(time_tok_convert_helper(2/18,10000,mapping))
+#     print(time_tok_convert_helper(5/18,10000,mapping))
+#     print(time_tok_convert_helper(14/18,10000,mapping))
+#     print(time_tok_convert_helper(18/18,10000,mapping))
+#    
+#     expected = [time_tok_convert_helper(2/18,10000,mapping), time_tok_convert_helper(5/18,10000,mapping), time_tok_convert_helper(14/18,10000,mapping), time_tok_convert_helper(18/18,10000,mapping)]
+#     print("expected result is:", expected)
+#     res = time_tok_convert(lst, mapping, 10000)
+#     print("actual result is:", res)
+
+    #NOTE: testing what hitobjects looks like
+    #print("bm looks like:")
+#    for z in range(36):
+#        print("z is", z, "beatmap is", bm[z])
+
+    fd_tok_ind_e.close()
+    fd_ind_tok_e.close()
+    fd_tok_ind_d.close()
+    fd_ind_tok_d.close()
