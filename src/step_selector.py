@@ -69,7 +69,7 @@ class StepSelectorDecoder(nn.Module):
 
         #TODO: generate probability to determine whether we use teacher-forcing or not during training?
         '''
-        max_seq_len = encoder_out.size(1)
+        max_seq_len = encoder_out.size(1) - 1
         batch_size = encoder_out.size(0)
         decoder_input = torch.empty(batch_size, 1, dtype=torch.long).fill_(0)
         decoder_hidden = encoder_hidden

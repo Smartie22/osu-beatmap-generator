@@ -46,8 +46,9 @@ def get_accuracy(encoder, decoder, dataset, max_samples=1000):
             print(predicted)
             print(target)
 
-            if predicted == target:
-                num_correct += 1
+            num_correct += int(torch.sum(target == predicted)) # TODO: Not sure if this is right
+            # if predicted == target:
+            #     num_correct += 1
             num_total += 1
 
     #return accuracy
@@ -79,7 +80,6 @@ def train_selector(encoder,
                 #produce sequences of logits
                 e_hd, e_out = encoder(X)
                 d_out, _, _ = decoder(e_out, e_hd) #idk if we need the decoder final hidden layer
-                d_out = d_out[:, 1:]
                 d_out_tensor = torch.tensor(d_out).transpose(1, 2)
 
                 # d_out_tensor = tensor([    # t_flatten = tensor([0, 2, 0, 2]) 
