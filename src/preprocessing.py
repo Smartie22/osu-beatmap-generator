@@ -264,7 +264,7 @@ class BeatmapDataset(Dataset):
                 obj_key = ('-1', '-1', type, '-1')
                 obj_key = ','.join(obj_key)
             else:
-                obj_key = (str(info[0]), str(info[1]), str(type), str(info[5]))
+                obj_key = (str(info[0]), str(info[1]), str(type), str(info[5]), str(info[6]), str(info[7]))
                 obj_key = ','.join(obj_key)
 
             # If the obj_key is in the index, we assign it
@@ -409,7 +409,7 @@ def parse_objects(currdir, name, dct, dct2, glob_idx):
                 obj_key = ('-1', '-1', type, '-1')
                 obj_key = ','.join(obj_key)
             else:
-                obj_key = (str(object[0]), str(object[1]), str(type), str(object[5]))
+                obj_key = (str(object[0]), str(object[1]), str(type), str(object[5]), str(object[6]), str(object[7]))
                 obj_key = ','.join(obj_key)
 
             #   store in dictionary
