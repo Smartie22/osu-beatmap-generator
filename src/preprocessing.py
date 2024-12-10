@@ -86,7 +86,7 @@ class BeatmapDataset(Dataset):
     
     def process_files(self, opus_file, osu_file):
         with ThreadPoolExecutor() as executor:
-            future_audio = executor.submit(self.process_audio, opus_file)
+            future_audio = executor.submit(process_audio, opus_file)
             future_beatmap = executor.submit(self.process_beatmap, osu_file)
 
         # Collect results
@@ -129,25 +129,6 @@ class BeatmapDataset(Dataset):
         retrieve the ith data sample in the dataset
         '''
         return self.data[i]
-
-    def process_audio(self, path):
-        '''
-        Compute mel-spectrogram using the librosa library
-
-        params:
-            path - relative path to the mp3 audio file for which we apply filtering on
-            dct - dictionary to store the result of filter application
-            key - the corresponding key our filter application should be mapped to in <dct> (SHOULD ALWAYS USE DEFAULT!!!!)
-        '''
-        audio, sr = librosa.load(path, sr=None)
-            
-        # use a more efficient STFT and Mel filter computation
-        stft = librosa.stft(audio, n_fft=1024, hop_length=512, win_length=1024, window='hann')
-        melfilter = librosa.feature.melspectrogram(
-            y=audio, sr=sr, S=np.abs(stft)**2, n_fft=1024, hop_length=512, n_mels=128, power=2.0
-        )
-    
-        return melfilter
 
     def process_beatmap(self, path):
         '''
@@ -279,50 +260,71 @@ class BeatmapDataset(Dataset):
         # Append and prepend start and end tokens.
         HitObjects.append(1)
 
-        TimeStamps_indices = self.time_tok_convert(TimeStamps)
+        TimeStamps_indices = time_tok_convert(TimeStamps, self.num_buckets, self.time_ind_e)
 
         return (lines_parsed, (TimeStamps_indices, HitObjects)) # Previously (TimeStamps, HitObjects)
 
-    def time_tok_convert_helper(self, element):
-        """
-        Take an element of the vector and replace/return it with a token
-        """
-        if element == 1:
-            return self.time_ind_e[f"{1 - (1 / self.num_buckets)}, 1.0"]
-        i = math.floor(element * self.num_buckets)
-        k = f"{i * 1 / self.num_buckets}, {(i + 1) * 1 / self.num_buckets}"
-        return self.time_ind_e[k]
+def time_tok_convert_helper(element, num_buckets, time_ind_e):
+    """
+    Take an element of the vector and replace/return it with a token
+    """
+    if element == 1:
+        return time_ind_e[f"{1 - (1 / num_buckets)}, 1.0"]
+    i = math.floor(element * num_buckets)
+    k = f"{i * 1 / num_buckets}, {(i + 1) * 1 / num_buckets}"
+    return time_ind_e[k]
 
-    def time_tok_convert(self, timestamps):
-        """ Given a sequence of <timestamps> we convert it to a sequence of tokens. Assume that the obj to token file is
-        made.
-        """
-        norm_stamps = tensor(timestamps, dtype=torch.float64)
-        # normalize
-        maxval = torch.max(norm_stamps)
-        norm_stamps = norm_stamps / maxval
-        # Put the stamps into buckets
-        func = lambda x: (self.time_tok_convert_helper(x))
-        tokens = norm_stamps.apply_(lambda x: (self.time_tok_convert_helper(x)))
+def time_tok_convert(timestamps, num_buckets, time_ind_e):
+    """ Given a sequence of <timestamps> we convert it to a sequence of tokens. Assume that the obj to token file is
+    made.
 
-        #TODO: reconsider whether we need both start AND end of song tokens pre+appended, or just the end of song token appended
-        return torch.cat((tensor([0]), tokens, tensor([1]))).tolist() # Prepend and append the start and end tokens
+    note that <timestamps> is a python list!!, TODO: should we do checks to ensure we arn't making a tensor of tensors..??
+    """
+    norm_stamps = tensor(timestamps, dtype=torch.float64)
+    # normalize
+    maxval = torch.max(norm_stamps)
+    norm_stamps = norm_stamps / maxval
+    # Put the stamps into buckets
+    func = lambda x: (time_tok_convert_helper(x))
+    tokens = norm_stamps.apply_(lambda x: (time_tok_convert_helper(x, num_buckets, time_ind_e)))
+
+    #TODO: reconsider whether we need both start AND end of song tokens pre+appended, or just the end of song token appended
+    return torch.cat((tensor([0]), tokens, tensor([1]))).tolist() # Prepend and append the start and end tokens
 
 
-def convert_index_hitobject(self, element):
+def process_audio(path):
+    '''
+    Compute mel-spectrogram using the librosa library
+
+    params:
+        path - relative path to the mp3 audio file for which we apply filtering on
+        dct - dictionary to store the result of filter application
+        key - the corresponding key our filter application should be mapped to in <dct> (SHOULD ALWAYS USE DEFAULT!!!!)
+    '''
+    audio, sr = librosa.load(path, sr=None)
+        
+    # use a more efficient STFT and Mel filter computation
+    stft = librosa.stft(audio, n_fft=1024, hop_length=512, win_length=1024, window='hann')
+    melfilter = librosa.feature.melspectrogram(
+        y=audio, sr=sr, S=np.abs(stft)**2, n_fft=1024, hop_length=512, n_mels=128, power=2.0
+    )
+
+    return melfilter
+
+def convert_index_hitobject(element, ind_obj_d):
     """
     helper to convert a token back to it's corresponding hit object
     """
-    return self.ind_obj_d[f"{element}"]
+    return ind_obj_d[f"{element}"]
 
-def index_hitobject_convert(self, indices):
+def index_hitobject_convert(indices):
     """
     converts a sequence of <tokens> into a sequence of hit objects
     """
     tokens_t = indices
     if type(indices) != torch.Tensor:
         tokens_t = tensor(indices)
-    helper = lambda x: (self.convert_token_hitobject(x))
+    helper = lambda x: (convert_index_hitobject(x))
     return tokens_t.apply_(helper)
     
 

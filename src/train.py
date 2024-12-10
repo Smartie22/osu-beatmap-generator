@@ -315,4 +315,5 @@ def set_up_and_train(param_path=None, param_dict=None):
 
 
 if __name__ == "__main__":
-    grid_search(1, 1)
+    #grid_search(1, 1)
+    set_up_and_train()

@@ -5,10 +5,13 @@ from json import load
 import torch
 import os
 import preprocessing
+import librosa
+import numpy as np
 
 def load_weights(path_hyper, path_encoder, path_decoder):
     encoder = None
     decoder = None
+    hyper_params = None
     with (open(path_hyper)) as hyper_param_file:
         hyper_params = load(hyper_param_file)
         encoder = StepSelectorEncoder(hyper_params['n_buckets'], hyper_params['emb_size'], hyper_params['hidden_size_e'])
@@ -17,9 +20,18 @@ def load_weights(path_hyper, path_encoder, path_decoder):
         decoder.load_state_dict(torch.load(path_decoder, weights_only=True))
         encoder.eval()
         decoder.eval()
-    return encoder, decoder
+    return encoder, decoder, hyper_params
 
-def evaluate_selector(X, encoder, decoder):
+def load_convert_dict(path_time_ind, path_ind_obj):
+    time_ind = None
+    ind_obj = None
+    with open(path_time_ind) as dictfile:
+        time_ind = load(dictfile)
+    with open(path_ind_obj) as dictfile:
+        ind_obj = load(dictfile)
+    return time_ind, ind_obj
+
+def evaluate_selector(X, encoder, decoder, ind_obj_d):
     '''
     X - tensor of size (1, L), representing the sequence of timestamps to be converted into hit objects 
         L represents the sequence length
@@ -31,22 +43,36 @@ def evaluate_selector(X, encoder, decoder):
     
     _, predictions = torch.topk(out_d, 1) #TODO convert logits into token prediction
     
-    hit_objs = preprocessing.index_hitobject_convert(predictions.view(-1)) #.view() call is used to flatten into 1-D tensor
+    hit_objs = preprocessing.index_hitobject_convert(predictions.view(-1), ind_obj_d) #.view() call is used to flatten into 1-D tensor
     
     return hit_objs 
 
+def eval(path_song, path_hyper, path_encoder, path_decoder, path_encoder_dict, path_decoder_dict):
+    '''
+    
+    '''
+    #preprocessing and data loading steps
+    encoder, decoder, hyper_params = load_weights(path_hyper, path_encoder, path_decoder)
+    num_buckets = hyper_params['n_buckets']
+    time_ind_e, ind_obj_d = load_convert_dict(path_encoder_dict, path_decoder_dict)
+#    melfilter = preprocessing.process_audio(path_song) #NOTE: needed if we use our own CNN model
+    y, sr = librosa.load(path_song)
 
+    timestamp_seq = librosa.onset.onset_detect(y=y, sr=sr, units='time') #TODO: use librosa or call our own CNN model to determine offsets and generate a sequence of timestamps to place notes
+    timestamp_seq = (timestamp_seq * 1000).round()
+    timestamp_seq = np.ndarray.tolist(timestamp_seq)
+
+    #TODO: convert timestamp_seq into tokens as input for the encoder
+    timestamp_seq_idx = preprocessing.time_tok_convert(timestamp_seq, num_buckets, time_ind_e)
+    #convert from seconds to milliseconds
+    hitobj_seq = evaluate_selector(timestamp_seq_idx, encoder, decoder, ind_obj_d)
+
+    return timestamp_seq, hitobj_seq
 
 if __name__ == "__main__":
     #NOTE: maybe we want to pass in command line arguments which are paths to a song??
-
+    pass
     #example usage
-    testing = tensor([[2, 3, 1], [4, 7, 6], [10, 9, 8]])
-    vals, indices = torch.topk(testing, 1)
-    print(indices.shape)
-    indices = indices.view(-1)
-    print(indices)
-    print(indices.shape)
 #    currpath = os.path.dirname()
 #    path_hyper = os.path.join(currpath, 'hyper-params-selector')
 #    path_encoder = os.path.join(currpath, 'encoder.pt')
