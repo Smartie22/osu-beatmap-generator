@@ -1,9 +1,10 @@
 from step_selector import StepSelectorEncoder
 from step_selector import StepSelectorDecoder
 from torch import tensor
+from json import load
 import torch
 import os
-from json import load
+import preprocessing
 
 def load_weights(path_hyper, path_encoder, path_decoder):
     encoder = None
@@ -27,12 +28,12 @@ def evaluate_selector(X, encoder, decoder):
     out_hd_e, out_e = encoder(X)
     out_d, _, _ = decoder(out_e, out_hd_e)
 
-    #TODO convert logits into token prediction
     
-    #TODO convert tokens into hit objects
+    _, predictions = torch.topk(out_d, 1) #TODO convert logits into token prediction
     
-    #TODO return sequence of hitobjects
-    return None 
+    hit_objs = preprocessing.index_hitobject_convert(predictions.view(-1)) #.view() call is used to flatten into 1-D tensor
+    
+    return hit_objs 
 
 
 
@@ -40,18 +41,24 @@ if __name__ == "__main__":
     #NOTE: maybe we want to pass in command line arguments which are paths to a song??
 
     #example usage
-    currpath = os.path.dirname()
-    path_hyper = os.path.join(currpath, 'hyper-params-selector')
-    path_encoder = os.path.join(currpath, 'encoder.pt')
-    path_decoder = os.path.join(currpath, 'decoder.pt')
-    encoder, decoder = load_weights(path_hyper, path_encoder, path_decoder)
-
-    if encoder == None and decoder == None:
-        raise Exception("Both encoder AND decoder failed to load properly")
-    elif encoder == None:
-        raise Exception("Encoder failed to load properly")
-    elif decoder == None:
-        raise Exception("Decoder failed to load properly")
-     
-    input = tensor([])
-    sequence = evaluate_selector(input, encoder, decoder)
+    testing = tensor([[2, 3, 1], [4, 7, 6], [10, 9, 8]])
+    vals, indices = torch.topk(testing, 1)
+    print(indices.shape)
+    indices = indices.view(-1)
+    print(indices)
+    print(indices.shape)
+#    currpath = os.path.dirname()
+#    path_hyper = os.path.join(currpath, 'hyper-params-selector')
+#    path_encoder = os.path.join(currpath, 'encoder.pt')
+#    path_decoder = os.path.join(currpath, 'decoder.pt')
+#    encoder, decoder = load_weights(path_hyper, path_encoder, path_decoder)
+#
+#    if encoder == None and decoder == None:
+#        raise Exception("Both encoder AND decoder failed to load properly")
+#    elif encoder == None:
+#        raise Exception("Encoder failed to load properly")
+#    elif decoder == None:
+#        raise Exception("Decoder failed to load properly")
+#     
+#    input = tensor([])
+#    sequence = evaluate_selector(input, encoder, decoder)

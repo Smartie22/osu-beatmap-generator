@@ -308,22 +308,39 @@ class BeatmapDataset(Dataset):
         #TODO: reconsider whether we need both start AND end of song tokens pre+appended, or just the end of song token appended
         return torch.cat((tensor([0]), tokens, tensor([1]))).tolist() # Prepend and append the start and end tokens
 
-    def convert_hitobject(self, element):
-        """
-        Helper to convert a single hitobject element given by <element> into it's corresponding token via <mapping>
-        """
-        return self.obj_ind_d[f"{element}"]
 
-    # TODO: please testing !!! also note that these functions might not even get used
-    def hitobject_tok_convert(self, hitobjects):
-        """
-        Convert the sequence of <hitobjects> into a sequence of tokens through the conversion found in <mapping>
-        """
-        objects = tensor(hitobjects)
-        helper = lambda x: (self.convert_hitobject(x))
-        tokens = objects.apply_(helper)
-        return torch.cat((tokens, tensor([1]))) # Prepend and append the start and end tokens
+def convert_index_hitobject(self, element):
+    """
+    helper to convert a token back to it's corresponding hit object
+    """
+    return self.ind_obj_d[f"{element}"]
 
+def index_hitobject_convert(self, indices):
+    """
+    converts a sequence of <tokens> into a sequence of hit objects
+    """
+    tokens_t = indices
+    if type(indices) != torch.Tensor:
+        tokens_t = tensor(indices)
+    helper = lambda x: (self.convert_token_hitobject(x))
+    return tokens_t.apply_(helper)
+    
+
+def convert_hitobject_token(self, element):
+    """
+    Helper to convert a single hitobject element given by <element> into it's corresponding token via <mapping>
+    """
+    return self.obj_ind_d[f"{element}"]
+
+# TODO: please testing !!! also note that these functions might not even get used
+def hitobject_tok_convert(self, hitobjects):
+    """
+    Convert the sequence of <hitobjects> into a sequence of tokens through the conversion found in <mapping>
+    """
+    objects = tensor(hitobjects)
+    helper = lambda x: (self.convert_hitobject(x))
+    tokens = objects.apply_(helper)
+    return torch.cat((tokens, tensor([1]))) # Prepend and append the start and end tokens
 def create_tokens_decoder(path, tok_index_name, index_tok_name):
     '''
     Creates a mapping between gameplay object and number,
