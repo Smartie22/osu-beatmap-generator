@@ -67,6 +67,10 @@ def eval(path_song, path_hyper, path_encoder, path_decoder, path_encoder_dict, p
     #convert from seconds to milliseconds
     hitobj_seq = evaluate_selector(timestamp_seq_idx, encoder, decoder, ind_obj_d)
 
+
+    print("Timestamp sequence to be returned is:", timestamp_seq)
+    print("Hitobject sequence to be returned is:", hitobj_seq)
+
     return timestamp_seq, hitobj_seq
 
 if __name__ == "__main__":
