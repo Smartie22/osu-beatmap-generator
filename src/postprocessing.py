@@ -2,11 +2,16 @@
 import os
 import random
 import librosa
+import torch
 
-def create_map(song_path, timestamps, hitobjects):
+
+def create_map(song_path, timestamps:torch.Tensor, hitobjects:torch.Tensor):
 
     song = librosa.load(song_path)[0]
     bpm = int(librosa.beat.beat_track(y=song)[0].item())
+
+    hitobjects = hitobjects.tolist()
+    timestamps = timestamps.tolist()
 
     with open("osu_generated_beatmap.osu", 'w') as map:
         # create the general section
