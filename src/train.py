@@ -192,10 +192,20 @@ def create_models(n_buckets, emb_size, hidden_size_e, hidden_size_d, output_size
     print("Creating Models")
     enc = StepSelectorEncoder(n_buckets, emb_size, hidden_size_e)
     dec = StepSelectorDecoder(output_size_d, hidden_size_d)
+    #write these hyper parameter values out to be recreated
+    write_hyperparams(n_buckets, emb_size, hidden_size_e, hidden_size_d, output_size_d)
     return enc, dec
 
-def train_models():
-    pass
+def write_hyperparams(n_buckets, emb_size, hidden_size_e, hidden_size_d, output_size_d):
+    currpath = os.path.dirname(__file__) #current file path
+    with open(os.path.join(currpath, 'hyper-params-selector')) as outfile:
+        hyperparams = {}
+        hyperparams['n_buckets'] = n_buckets 
+        hyperparams['emb_size'] = emb_size
+        hyperparams['hidden_size_e'] = hidden_size_e
+        hyperparams['hidden_size_d'] = hidden_size_d
+        hyperparams['output_size_d'] = output_size_d
+        json.dump(hyperparams, outfile)
 
 
 def set_up_and_train():  
@@ -204,10 +214,10 @@ def set_up_and_train():
     n_buckets = 10000
     tok_ind_e, ind_tok_e, tok_ind_d, ind_tok_d = create_vocab_open_token_files(dir, datapath, n_buckets)
 
+    # Create datasets
     n_dpoints = 10000
     train_set, val_set, test_set = create_datasets(datapath, tok_ind_e, ind_tok_e, tok_ind_d, ind_tok_d, n_dpoints, n_buckets)
 
-    # Create datasets
 
     # Create models
     emb_size = 200
@@ -221,8 +231,8 @@ def set_up_and_train():
     train_selector(enc, dec, train_set, val_set, num_epochs=1, plot_every=1)
 
     print("done, exporting models to './encoder.pt' and './decoder.pt'")
-    torch.save(enc, os.path.join(dir, 'encoder.pt'))
-    torch.save(dec, os.path.join(dir, 'decoder.pt'))
+    torch.save(enc.state_dict(), os.path.join(dir, 'encoder.pt'))
+    torch.save(dec.state_dict(), os.path.join(dir, 'decoder.pt'))
 
 
 
