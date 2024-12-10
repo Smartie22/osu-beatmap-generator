@@ -3,6 +3,7 @@ This module will be where all training is structured and done. Will import from 
 '''
 import json
 import os
+import shutil
 
 import matplotlib.pyplot as plt
 import torch
@@ -57,15 +58,19 @@ def get_accuracy(encoder, decoder, dataset, max_samples=1000):
     print("correct:", num_correct, "total:", num_total)
     return num_correct / num_total if num_total > 0 else 0
         
-def train_selector(encoder, 
-                   decoder, 
-                   train_data, 
-                   val_data, 
-                   learning_rate = 0.001, 
-                   batch_size = 10, 
-                   num_epochs = 100, 
-                   plot_every = 50, 
-                   plot = True):
+def train_selector(encoder,
+                   decoder,
+                   train_data,
+                   val_data,
+                   learning_rate = 0.001,
+                   batch_size = 10,
+                   num_epochs = 100,
+                   plot_every = 50,
+                   plot = True,
+                   acc_graph_path="acc_over_iters.png",
+                   loss_graph_path="loss_over_iters.png",
+                   param_path = None
+                   ):
       
     train_loader = DataLoader(train_data, batch_size=batch_size, collate_fn=preprocessing.collate_batch_selector, shuffle=True) 
     criteron = torch.nn.CrossEntropyLoss()
@@ -80,6 +85,9 @@ def train_selector(encoder,
         decoder.train()
         for e in range(num_epochs):
             for i, (X, t) in enumerate(train_loader):
+                if param_path is not None:
+                    with open(param_path, "a") as outfile:
+                        outfile.write(f"training loop: {i} epoch: {e}\n")
                 print("training loop:", i, "epoch:", e)
                 optimizer_enc.zero_grad() #clean up accumulated gradients before any calculations
                 optimizer_dec.zero_grad()
@@ -123,6 +131,9 @@ def train_selector(encoder,
                     train_loss.append(loss.item())
                     train_acc.append(ta)
                     val_acc.append(va)
+                    if param_path is not None:
+                        with open(param_path, "a") as outfile:
+                            outfile.write(f"Iteration: {iter_count} Loss: {float(loss)} Train Acc: {ta} Val Acc: {va}\n")
                     print("Iteration", iter_count, "Loss:", float(loss), "Train Acc:", ta, "Val Acc:", va)
     except e:
         print("ERROR !!!!!")
@@ -135,7 +146,7 @@ def train_selector(encoder,
             plt.title("Loss over iterations")
             plt.xlabel("Iterations")
             plt.ylabel("Loss")
-            plt.savefig("loss_over_iters.png")
+            plt.savefig(loss_graph_path)
 
             plt.figure()
             plt.plot(iters[:len(train_acc)], train_acc)
@@ -144,7 +155,7 @@ def train_selector(encoder,
             plt.xlabel("Iterations")
             plt.ylabel("Acc")
             plt.legend(["Train", "Validation"])
-            plt.savefig("acc_over_iters.png")
+            plt.savefig(acc_graph_path)
 
 
 def create_vocab_open_token_files(dir, path, n_buckets):
@@ -154,10 +165,15 @@ def create_vocab_open_token_files(dir, path, n_buckets):
     path_tok_ind_d = os.path.join(dir, "test_tokenizer.json")
     path_ind_tok_d = os.path.join(dir, "test_indices.json")
 
-    if not os.path.exists(path_tok_ind_e) or not os.path.exists(path_ind_tok_e):
-        preprocessing.create_tokens_encoder(path_tok_ind_e, path_ind_tok_e, n_buckets)
-    if not os.path.exists(path_tok_ind_d) or not os.path.exists(path_ind_tok_d):
-        preprocessing.create_tokens_decoder(path, path_tok_ind_d, path_ind_tok_d)
+    if os.path.exists(path_tok_ind_e) or os.path.exists(path_ind_tok_e):
+        os.remove(path_tok_ind_e)
+        os.remove(path_ind_tok_e)
+    if os.path.exists(path_tok_ind_d) or os.path.exists(path_ind_tok_d):
+        os.remove(path_tok_ind_d)
+        os.remove(path_ind_tok_d)
+
+    preprocessing.create_tokens_encoder(path_tok_ind_e, path_ind_tok_e, n_buckets)
+    preprocessing.create_tokens_decoder(path, path_tok_ind_d, path_ind_tok_d)
 
     # open the files here
     print("Opening Files")
@@ -192,49 +208,111 @@ def create_models(n_buckets, emb_size, hidden_size_e, hidden_size_d, output_size
     print("Creating Models")
     enc = StepSelectorEncoder(n_buckets, emb_size, hidden_size_e)
     dec = StepSelectorDecoder(output_size_d, hidden_size_d)
-    #write these hyper parameter values out to be recreated
-    write_hyperparams(n_buckets, emb_size, hidden_size_e, hidden_size_d, output_size_d)
     return enc, dec
 
-def write_hyperparams(n_buckets, emb_size, hidden_size_e, hidden_size_d, output_size_d):
-    currpath = os.path.dirname(__file__) #current file path
-    with open(os.path.join(currpath, 'hyper-params-selector')) as outfile:
-        hyperparams = {}
-        hyperparams['n_buckets'] = n_buckets 
-        hyperparams['emb_size'] = emb_size
-        hyperparams['hidden_size_e'] = hidden_size_e
-        hyperparams['hidden_size_d'] = hidden_size_d
-        hyperparams['output_size_d'] = output_size_d
-        json.dump(hyperparams, outfile)
+def create_params_file(file_w_path, param_dict):
+    with open(file_w_path, "w") as outfile:
+        # Overwrite existing content with new things...
+        for k in param_dict:
+            outfile.write(f"{k}: {param_dict[k]}\n")
+        outfile.write("\n")
 
+def grid_search(num_epochs, plot_every):
+    curr_dir = os.path.dirname(__file__)
+    res_dir_path = os.path.join(curr_dir, "grid_search_results")
+    if os.path.exists(res_dir_path):
+        shutil.rmtree(res_dir_path)
+    os.mkdir(res_dir_path)
 
-def set_up_and_train():  
+    ne = num_epochs # num epochs. Please adjust during final testing. num epoch default: 50
+    pe = plot_every # plot every iteration. Please adjust during final testing. plot every default: 20
+
+    nb_lst = [1000, 10000, 100000] # num buckets
+    emb_lst = [200, 300, 400] # embedding size
+    hs_lst = [200, 300, 400] # hidden size
+    lr_lst = [0.001, 0.01, 0.1] # learning rate
+    bs_lst = [10, 20, 30, 40] # batch size
+
+    for num_buckets in nb_lst:
+        for emb in emb_lst:
+            for hidden in hs_lst:
+                for lr in lr_lst:
+                    for bs in bs_lst:
+                        new_dir_name = f"nb_{num_buckets}_es_{emb}_hs_{hidden}_ne_{ne}_pe_{pe}_lr_{lr}_bs_{bs}"
+                        new_dir_path = os.path.join(res_dir_path, new_dir_name)
+                        os.mkdir(new_dir_path)
+
+                        param_dict = {}
+                        param_dict['n_buckets'] = num_buckets
+                        param_dict['emb_size'] = emb
+                        param_dict['hidden_size_e'] = hidden
+                        param_dict['hidden_size_d'] = hidden
+                        param_dict['num_epoch'] = ne
+                        param_dict['plot_every'] = pe
+                        param_dict['learning_rate'] = lr
+                        param_dict['batch_size'] = bs
+                        param_dict['acc_graph_path'] = os.path.join(new_dir_path, "acc_graph.png")
+                        param_dict['loss_graph_path'] = os.path.join(new_dir_path, "loss_graph.png")
+                        param_dict['encoder_file_path'] = os.path.join(new_dir_path, "encoder.pt")
+                        param_dict['decoder_file_path'] = os.path.join(new_dir_path, "decoder.pt")
+                        file_path = os.path.join(new_dir_path, "results.txt")
+
+                        set_up_and_train(file_path, param_dict)
+
+def set_up_and_train(param_path=None, param_dict=None):
     dir = os.path.dirname(__file__)
     datapath = os.path.join(dir, '..', 'data')
+
+    # Initialize all parameters
     n_buckets = 10000
+    emb_size = 200
+    hidden_size_e = 200
+    hidden_size_d = hidden_size_e
+    num_epoch = 1
+    plot_every = 1
+    learning_rate = 0.001
+    batch_size = 10
+    acc_graph_path = "acc_over_iters.png"
+    loss_graph_path = "loss_over_iters.png"
+    encoder_file_path = os.path.join(dir, 'encoder.pt')
+    decoder_file_path = os.path.join(dir, 'decoder.pt')
+
+    if param_dict is not None and param_path is not None:
+        n_buckets = param_dict['n_buckets']
+        emb_size = param_dict['emb_size']
+        hidden_size_e = param_dict['hidden_size_e']
+        hidden_size_d = param_dict['hidden_size_d']
+        num_epoch = param_dict['num_epoch']
+        plot_every = param_dict['plot_every']
+        learning_rate = param_dict['learning_rate']
+        batch_size = param_dict['batch_size']
+        acc_graph_path = param_dict['acc_graph_path']
+        loss_graph_path = param_dict['loss_graph_path']
+        encoder_file_path = param_dict['encoder_file_path']
+        decoder_file_path = param_dict['decoder_file_path']
+
+        create_params_file(param_path, param_dict)
+    else:
+        param_path = None
+
     tok_ind_e, ind_tok_e, tok_ind_d, ind_tok_d = create_vocab_open_token_files(dir, datapath, n_buckets)
 
     # Create datasets
     n_dpoints = 10000
     train_set, val_set, test_set = create_datasets(datapath, tok_ind_e, ind_tok_e, tok_ind_d, ind_tok_d, n_dpoints, n_buckets)
 
-
     # Create models
-    emb_size = 200
-    hidden_size_e = 200
-    hidden_size_d = hidden_size_e
     output_size_d = len(tok_ind_d.keys()) #output size is the number of decoder tokens possible
     enc, dec = create_models(n_buckets, emb_size, hidden_size_e, hidden_size_d, output_size_d)
 
     # Train models
     print("Training Models")
-    train_selector(enc, dec, train_set, val_set, num_epochs=1, plot_every=1)
+    train_selector(enc, dec, train_set, val_set, learning_rate, batch_size, num_epoch, plot_every, acc_graph_path=acc_graph_path, loss_graph_path=loss_graph_path, param_path=param_path)
 
-    print("done, exporting models to './encoder.pt' and './decoder.pt'")
-    torch.save(enc.state_dict(), os.path.join(dir, 'encoder.pt'))
-    torch.save(dec.state_dict(), os.path.join(dir, 'decoder.pt'))
-
+    print(f"done, exporting models to '{encoder_file_path}' and '{decoder_file_path}'")
+    torch.save(enc.state_dict(), encoder_file_path)
+    torch.save(dec.state_dict(), decoder_file_path)
 
 
 if __name__ == "__main__":
-    set_up_and_train()
+    grid_search(1, 1)
