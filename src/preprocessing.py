@@ -245,7 +245,7 @@ class BeatmapDataset(Dataset):
                 obj_key = ('-1', '-1', type, '-1')
                 obj_key = ','.join(obj_key)
             else:
-                obj_key = (str(info[0]), str(info[1]), str(type), str(info[5]), str(info[6]), str(info[7]))
+                obj_key = (str(info[0]), str(info[1]), str(type), ','.join(info[5:]))
                 obj_key = ','.join(obj_key)
 
             # If the obj_key is in the index, we assign it
@@ -390,36 +390,39 @@ def parse_objects(currdir, name, dct, dct2, glob_idx):
         #we are in the hitobjects section
         line = f.readline() #skip the [HitObjects] header
         while(line != '\n' or line):
-            #   split line to obtain x,y,type,object_params
-            if not line:
-                break
-            object = line.strip().split(',')
-            # x @ index 0, y @ idx 1, type @ idx 3, obj_param @ idx 5
-            type = ''
-            bitstring = bin(int(object[3]))
-            if bitstring[-1] == '1':
-                type = 'c'
-            elif bitstring[-2] == '1':
-                type = 'l'
-            elif bitstring[-4] == '1':
-                type = 's'
-            
-            if type == 'c':
-                obj_key = (object[0], object[1], type, '-1')
-                obj_key = ','.join(obj_key)
-            elif type == 's':
-                obj_key = ('-1', '-1', type, '-1')
-                obj_key = ','.join(obj_key)
-            else:
-                obj_key = (str(object[0]), str(object[1]), str(type), str(object[5]), str(object[6]), str(object[7]))
-                obj_key = ','.join(obj_key)
+            try:
+                #   split line to obtain x,y,type,object_params
+                if not line:
+                    break
+                object = line.strip().split(',')
+                # x @ index 0, y @ idx 1, type @ idx 3, obj_param @ idx 5
+                type = ''
+                bitstring = bin(int(object[3]))
+                if bitstring[-1] == '1':
+                    type = 'c'
+                elif bitstring[-2] == '1':
+                    type = 'l'
+                elif bitstring[-4] == '1':
+                    type = 's'
+                
+                if type == 'c':
+                    obj_key = (object[0], object[1], type, '-1')
+                    obj_key = ','.join(obj_key)
+                elif type == 's':
+                    obj_key = ('-1', '-1', type, '-1')
+                    obj_key = ','.join(obj_key)
+                else:
+                    obj_key = (str(object[0]), str(object[1]), str(type), ','.join(object[5:]))
+                    obj_key = ','.join(obj_key)
 
-            #   store in dictionary
-            if obj_key not in dct:
-                dct[obj_key] = glob_idx[0]     
-                dct2[glob_idx[0]] = obj_key
-                glob_idx[0] = glob_idx[0] + 1
-            line = f.readline()
+                #   store in dictionary
+                if obj_key not in dct:
+                    dct[obj_key] = glob_idx[0]     
+                    dct2[glob_idx[0]] = obj_key
+                    glob_idx[0] = glob_idx[0] + 1
+                line = f.readline()
+            except Exception:
+                continue
 
 def create_tokens_encoder(tok_index_name, index_tok_name, num_buckets=10000):
     """ Tokenizer for the encoder. Each bucket: represents a period of time that is of length 1/10000, with the whole

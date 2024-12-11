@@ -199,8 +199,8 @@ def create_vocab_open_token_files(dir, path, n_buckets):
 def create_datasets(path, tok_ind_e, ind_tok_e, tok_ind_d, ind_tok_d, n_dpoints, n_buckets):
     print("Creating Datasets")
     bm = BeatmapDataset(path, tok_ind_e, ind_tok_e, tok_ind_d, ind_tok_d, n_buckets, n_dpoints)
-    train_set = bm.data[:24]
-    val_set = bm.data[24:]
+    train_set = bm.data[:100]
+    val_set = bm.data[100:]
     test_set = val_set[0]
     return train_set, val_set, test_set
 
@@ -230,7 +230,7 @@ def grid_search(num_epochs, plot_every):
     nb_lst = [1000, 10000, 100000] # num buckets
     emb_lst = [200, 300, 400] # embedding size
     hs_lst = [200, 300, 400] # hidden size
-    lr_lst = [0.001, 0.01, 0.1] # learning rate
+    lr_lst = [0.001, 0.01] # learning rate
     bs_lst = [10, 20, 30, 40] # batch size
 
     for num_buckets in nb_lst:
@@ -315,5 +315,5 @@ def set_up_and_train(param_path=None, param_dict=None):
 
 
 if __name__ == "__main__":
-    #grid_search(1, 1)
-    set_up_and_train()
+    grid_search(5, 10)
+    # set_up_and_train()
