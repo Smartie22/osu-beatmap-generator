@@ -416,7 +416,7 @@ def parse_objects(currdir, name, dct, dct2, glob_idx):
                     obj_key = ','.join(obj_key)
 
                 #   store in dictionary
-                if obj_key not in dct:
+                if obj_key not in dct and type != '': #NOTE: type != '' is a bandaid fix
                     dct[obj_key] = glob_idx[0]     
                     dct2[glob_idx[0]] = obj_key
                     glob_idx[0] = glob_idx[0] + 1
