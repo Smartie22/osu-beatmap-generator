@@ -71,10 +71,10 @@ class StepSelectorDecoder(nn.Module):
         '''
         max_seq_len = encoder_out.size(1) - 1
         if not target == None:
-            print("target not none")
+            #print("target not none")
             batch_size = encoder_out.size(0)
         else: 
-            print("target is none")
+            #print("target is none")
             batch_size = 1
         decoder_input = torch.empty(batch_size, 1, dtype=torch.long).fill_(0)
         decoder_hidden = encoder_hidden 

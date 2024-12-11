@@ -95,7 +95,9 @@ def train_selector(encoder,
                 #produce sequences of logits
                 e_hd, e_out = encoder(X)
                 d_out, _, _ = decoder(e_out, e_hd, t) #idk if we need the decoder final hidden layer
-                d_out_tensor = d_out.transpose(1, 2)
+                #print("d out tensor shape before transpose is", d_out.shape)
+                d_out_tensor = d_out.transpose(0, 1).squeeze()
+                d_out_tensor = d_out_tensor.transpose(1, 2)
 
                 # d_out_tensor = tensor([    # t_flatten = tensor([0, 2, 0, 2]) 
                 #   [2.5, 1.2, 0.3],         # t is target index for each list
@@ -112,6 +114,12 @@ def train_selector(encoder,
                 # ])
                 # d_out_tensor = torch.cat([torch.stack(logits) for logits in d_out], dim=0)
                 t_tensor = t
+
+                #print("d out tensor is", d_out_tensor)
+                #print("d out tensor shape is", d_out_tensor.shape)
+                #print("t tensor is", t_tensor)
+                #print("t tensor shape is", t_tensor.shape)
+
                 loss = criteron(d_out_tensor, t_tensor)
 #                loss.requires_grad = True
                 loss.backward() #propogate gradients
@@ -231,7 +239,7 @@ def grid_search(num_epochs, plot_every):
     nb_lst = [1000, 10000, 100000] # num buckets
     emb_lst = [200, 300, 400] # embedding size
     hs_lst = [200, 300, 400] # hidden size
-    lr_lst = [0.001, 0.01] # learning rate
+    lr_lst = [ 0.01] # learning rate
     bs_lst = [10, 20, 30, 40] # batch size
 
     for num_buckets in nb_lst:
@@ -317,5 +325,5 @@ def set_up_and_train(param_path=None, param_dict=None):
 
 
 if __name__ == "__main__":
-    grid_search(1, 1)
+    grid_search(10, 5)
     # set_up_and_train()
