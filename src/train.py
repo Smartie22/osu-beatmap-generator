@@ -201,7 +201,7 @@ def create_datasets(path, tok_ind_e, ind_tok_e, tok_ind_d, ind_tok_d, n_dpoints,
     bm = BeatmapDataset(path, tok_ind_e, ind_tok_e, tok_ind_d, ind_tok_d, n_buckets, n_dpoints)
     train_set = bm.data[:100]
     val_set = bm.data[100:]
-    test_set = val_set[0]
+    test_set = [] #val_set[0]
     return train_set, val_set, test_set
 
 def create_models(n_buckets, emb_size, hidden_size_e, hidden_size_d, output_size_d):
@@ -315,5 +315,5 @@ def set_up_and_train(param_path=None, param_dict=None):
 
 
 if __name__ == "__main__":
-    grid_search(5, 10)
+    grid_search(1, 5)
     # set_up_and_train()
