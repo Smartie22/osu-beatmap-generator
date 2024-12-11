@@ -168,12 +168,12 @@ def create_vocab_open_token_files(dir, path, n_buckets):
     if os.path.exists(path_tok_ind_e) or os.path.exists(path_ind_tok_e):
         os.remove(path_tok_ind_e)
         os.remove(path_ind_tok_e)
-    if os.path.exists(path_tok_ind_d) or os.path.exists(path_ind_tok_d):
-        os.remove(path_tok_ind_d)
-        os.remove(path_ind_tok_d)
-
+    if not (os.path.exists(path_tok_ind_d) or os.path.exists(path_ind_tok_d)):
+        preprocessing.create_tokens_decoder(path, path_tok_ind_d, path_ind_tok_d)
+        #os.remove(path_tok_ind_d)
+        #os.remove(path_ind_tok_d)
     preprocessing.create_tokens_encoder(path_tok_ind_e, path_ind_tok_e, n_buckets)
-    preprocessing.create_tokens_decoder(path, path_tok_ind_d, path_ind_tok_d)
+
 
     # open the files here
     print("Opening Files")
@@ -199,8 +199,9 @@ def create_vocab_open_token_files(dir, path, n_buckets):
 def create_datasets(path, tok_ind_e, ind_tok_e, tok_ind_d, ind_tok_d, n_dpoints, n_buckets):
     print("Creating Datasets")
     bm = BeatmapDataset(path, tok_ind_e, ind_tok_e, tok_ind_d, ind_tok_d, n_buckets, n_dpoints)
-    train_set = bm.data[:100]
-    val_set = bm.data[100:]
+    num_train = (int)(0.8*len(bm))
+    train_set = bm.data[:num_train]
+    val_set = bm.data[num_train:]
     test_set = [] #val_set[0]
     return train_set, val_set, test_set
 
@@ -300,6 +301,7 @@ def set_up_and_train(param_path=None, param_dict=None):
     # Create datasets
     n_dpoints = 10000
     train_set, val_set, test_set = create_datasets(datapath, tok_ind_e, ind_tok_e, tok_ind_d, ind_tok_d, n_dpoints, n_buckets)
+    print("size of train set is", len(train_set), "size of val set is", len(val_set))
 
     # Create models
     output_size_d = len(tok_ind_d.keys()) #output size is the number of decoder tokens possible
@@ -309,11 +311,11 @@ def set_up_and_train(param_path=None, param_dict=None):
     print("Training Models")
     train_selector(enc, dec, train_set, val_set, learning_rate, batch_size, num_epoch, plot_every, acc_graph_path=acc_graph_path, loss_graph_path=loss_graph_path, param_path=param_path)
 
-    print(f"done, exporting models to '{encoder_file_path}' and '{decoder_file_path}'")
+    print(f"done, exporting models to '{encoder_file_path}' and '{decoder_file_path}'\n")
     torch.save(enc.state_dict(), encoder_file_path)
     torch.save(dec.state_dict(), decoder_file_path)
 
 
 if __name__ == "__main__":
-    #grid_search(1, 5)
-    set_up_and_train()
+    grid_search(1, 1)
+    # set_up_and_train()

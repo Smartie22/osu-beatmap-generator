@@ -224,38 +224,43 @@ class BeatmapDataset(Dataset):
         TimeStamps = []
         HitObjects = []
         for line in contents:
-            if line == "\n":
-                break
-            line = line.strip()
-            info = line.split(",") # contains stuff about the hitobjects
-            # x @ index 0, y @ idx 1, type @ idx 3, obj_param @ idx 5
-            type = ''
-            bitstring = bin(int(info[3]))
-            if bitstring[-1] == '1':
-                type = 'c'
-            elif bitstring[-2] == '1':
-                type = 'l'
-            elif bitstring[-4] == '1':
-                type = 's'
+            try:
+                if line == "\n":
+                    break
+                line = line.strip()
+                info = line.split(",") # contains stuff about the hitobjects
+                # x @ index 0, y @ idx 1, type @ idx 3, obj_param @ idx 5
+                type = ''
+                bitstring = bin(int(info[3]))
+                if bitstring[-1] == '1':
+                    type = 'c'
+                elif bitstring[-2] == '1':
+                    type = 'l'
+                elif bitstring[-4] == '1':
+                    type = 's'
 
-            if type == 'c':
-                obj_key = (info[0], info[1], type, '-1')
-                obj_key = ','.join(obj_key)
-            elif type == 's':
-                obj_key = ('-1', '-1', type, '-1')
-                obj_key = ','.join(obj_key)
-            else:
-                obj_key = (str(info[0]), str(info[1]), str(type), ','.join(info[5:]))
-                obj_key = ','.join(obj_key)
+                if type == 'c':
+                    obj_key = (info[0], info[1], type, '-1')
+                    obj_key = ','.join(obj_key)
+                elif type == 's':
+                    obj_key = ('-1', '-1', type, '-1')
+                    obj_key = ','.join(obj_key)
+                else:
+                    obj_key = (str(info[0]), str(info[1]), str(type), ','.join(info[5:]))
+                    obj_key = ','.join(obj_key)
 
-            # If the obj_key is in the index, we assign it
-            index = 2
-            if obj_key in self.obj_ind_d:
-                index = self.obj_ind_d[obj_key]
+                # If the obj_key is in the index, we assign it
+                index = 2
+                if obj_key in self.obj_ind_d:
+                    index = self.obj_ind_d[obj_key]
+            except Exception:
+                lines_parsed += 1
+                continue
 
             TimeStamps.append(int(info.pop(2))) #remove the time stamp, append to timestamps
             HitObjects.append(index) #reconstruct the original line without whitespace, and without the timestamps
             lines_parsed += 1
+            
 
         # Append and prepend start and end tokens.
         HitObjects.append(1)
@@ -423,13 +428,13 @@ def parse_objects(currdir, name, dct, dct2, glob_idx):
                     obj_key = ','.join(obj_key)
 
                 #   store in dictionary
-                if obj_key not in dct:
+                if obj_key not in dct and type != '': #NOTE: type != '' is a bandaid fix
                     dct[obj_key] = glob_idx[0]     
                     dct2[glob_idx[0]] = obj_key
                     glob_idx[0] = glob_idx[0] + 1
                 line = f.readline()
             except Exception:
-                continue
+                line = f.readline()
 
 def create_tokens_encoder(tok_index_name, index_tok_name, num_buckets=10000):
     """ Tokenizer for the encoder. Each bucket: represents a period of time that is of length 1/10000, with the whole
