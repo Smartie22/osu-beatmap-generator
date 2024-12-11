@@ -73,7 +73,7 @@ def train_selector(encoder,
                    ):
       
     train_loader = DataLoader(train_data, batch_size=batch_size, collate_fn=preprocessing.collate_batch_selector, shuffle=True) 
-    criteron = torch.nn.CrossEntropyLoss()
+    criteron = torch.nn.CrossEntropyLoss(ignore_index=2)
     optimizer_enc = torch.optim.Adam(encoder.parameters(), lr=learning_rate)
     optimizer_dec = torch.optim.Adam(decoder.parameters(), lr=learning_rate)
 
@@ -94,7 +94,7 @@ def train_selector(encoder,
                 
                 #produce sequences of logits
                 e_hd, e_out = encoder(X)
-                d_out, _, _ = decoder(e_out, e_hd) #idk if we need the decoder final hidden layer
+                d_out, _, _ = decoder(e_out, e_hd, t) #idk if we need the decoder final hidden layer
                 d_out_tensor = d_out.transpose(1, 2)
 
                 # d_out_tensor = tensor([    # t_flatten = tensor([0, 2, 0, 2]) 
@@ -315,5 +315,5 @@ def set_up_and_train(param_path=None, param_dict=None):
 
 
 if __name__ == "__main__":
-    grid_search(1, 5)
-    # set_up_and_train()
+    #grid_search(1, 5)
+    set_up_and_train()

@@ -1,6 +1,24 @@
 import evaluate
 import postprocessing
 import os
+import json
+
+def make_hyper_params():
+    name = "hyper-params"
+    name = os.path.join(os.path.dirname(__file__), name)
+    n_buckets = 1000
+    emb_size = 200
+    hidden_size_d = 200
+    hidden_size_e = 200
+    dct = {}
+    dct['n_buckets'] = n_buckets 
+    dct['emb_size'] = emb_size 
+    dct['hidden_size_d'] = hidden_size_d
+    dct['hidden_size_e'] = hidden_size_e
+    with open(name, 'w') as outfile:
+        json.dump(dct, outfile)
+
+
 
 def run():
     #path of this file
@@ -8,7 +26,8 @@ def run():
 
     #create path to song
     usrinput = input("Please type the path to the song:\n")
-    filtered_path = os.path.normpath(usrinput) #TODO: check this over and see if it works lol
+    filtered_path = os.path.normpath(os.path.join(currdir, usrinput)) #TODO: check this over and see if it works lol
+    print("filtered path is:", filtered_path)
     song_path = filtered_path
 
     print("Creating paths...")
@@ -27,4 +46,5 @@ def run():
     print("Map generation completed!")
 
 if __name__ == "__main__":
+    make_hyper_params()
     run()

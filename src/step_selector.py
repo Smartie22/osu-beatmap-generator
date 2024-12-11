@@ -70,9 +70,14 @@ class StepSelectorDecoder(nn.Module):
         #TODO: generate probability to determine whether we use teacher-forcing or not during training?
         '''
         max_seq_len = encoder_out.size(1) - 1
-        batch_size = encoder_out.size(0)
+        if not target == None:
+            print("target not none")
+            batch_size = encoder_out.size(0)
+        else: 
+            print("target is none")
+            batch_size = 1
         decoder_input = torch.empty(batch_size, 1, dtype=torch.long).fill_(0)
-        decoder_hidden = encoder_hidden
+        decoder_hidden = encoder_hidden 
         decoder_cells = torch.empty(1, batch_size, self.hidden_size, dtype=torch.long).fill_(0)
         decoder_outputs = []
 
@@ -86,7 +91,7 @@ class StepSelectorDecoder(nn.Module):
 
             #update the decoder's input by...
             #1 - if a target vector is given, apply teacher-forcing 
-            if target:
+            if not target == None:
                 decoder_input = target[:, i].unsqueeze(1) #(N,1)
             #2 - use the highest probability token as the next input 
             else:
@@ -95,12 +100,12 @@ class StepSelectorDecoder(nn.Module):
             i += 1
 
         #decoder_outputs is a list containing N elements, each element is a tensor of shape (T,1)
-        decoder_outputs = torch.cat(decoder_outputs, dim = 1) 
+        decoder_outputs = torch.stack(decoder_outputs) #NOTE: CHANGED TO STACK INSTEAD OF CAT 
         #decoder_outputs is shape (N,T), N is batch size, T is token size
         return decoder_outputs, decoder_hidden, None
 
     def forward_step(self, input, hidden, cells):
-        output = self.embedding(input)# Size: input_size, hidden_size
+        output = self.embedding(input) # Size: input_size, hidden_size 
         output, (hidden, cells) = self.lstm(output.type(torch.float32), (hidden.type(torch.float32), cells.type(torch.float32)))
         output = self.fc(output)
         return output, hidden, cells

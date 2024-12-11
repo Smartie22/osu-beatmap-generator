@@ -315,17 +315,24 @@ def convert_index_hitobject(element, ind_obj_d):
     """
     helper to convert a token back to it's corresponding hit object
     """
-    return ind_obj_d[f"{element}"]
+#    return ind_obj_d[f"{element}"]
+    print("element is", element)
+    retval = ind_obj_d[str(element)]
+    return retval 
 
-def index_hitobject_convert(indices):
+def index_hitobject_convert(indices, ind_obj_d):
     """
     converts a sequence of <tokens> into a sequence of hit objects
     """
-    tokens_t = indices
-    if type(indices) != torch.Tensor:
-        tokens_t = tensor(indices)
-    helper = lambda x: (convert_index_hitobject(x))
-    return tokens_t.apply_(helper)
+    tokens_lst = indices
+    if type(indices) == torch.Tensor:
+        tokens_lst = indices.tolist()
+    i = 0
+    while i < len(tokens_lst):
+        tokens_lst[i] = convert_index_hitobject(tokens_lst[i], ind_obj_d)
+        i += 1
+
+    return tokens_lst 
     
 
 def convert_hitobject_token(self, element):
@@ -357,9 +364,9 @@ def create_tokens_decoder(path, tok_index_name, index_tok_name):
             one hot vector that is set as 1
     '''
     # (<x>, <y>, <type>, <object_params>)
-    mapping = {'<bom>': 0, '<eom>': 1, '<unk>': 2, '<pad>': 3}
-    indices = {0: '<bom>', 1: '<eom>', 2: '<unk>', 3: '<pad>'}
-    idx = [4]  # poor man's pointer (global index which needs to be mutated)
+    mapping = {'<bom>': 0, '<eom>': 1, '<pad>': 2}
+    indices = {0: '<bom>', 1: '<eom>', 2: '<pad>'}
+    idx = [3]  # poor man's pointer (global index which needs to be mutated)
     with open(tok_index_name, 'w') as outfile:
         for currdir, dirnames, filenames in os.walk(path):
             for name in filenames:
