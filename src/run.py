@@ -8,8 +8,8 @@ def make_hyper_params():
     name = os.path.join(os.path.dirname(__file__), name)
     n_buckets = 1000
     emb_size = 200
-    hidden_size_d = 200
-    hidden_size_e = 200
+    hidden_size_d = 300
+    hidden_size_e = 300
     dct = {}
     dct['n_buckets'] = n_buckets 
     dct['emb_size'] = emb_size 

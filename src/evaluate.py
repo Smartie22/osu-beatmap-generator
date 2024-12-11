@@ -14,6 +14,11 @@ def load_weights(output_size_d, path_hyper, path_encoder, path_decoder):
     hyper_params = None
     with (open(path_hyper)) as hyper_param_file:
         hyper_params = load(hyper_param_file)
+        print(hyper_params['n_buckets'])
+        print(hyper_params['emb_size'])
+        print(hyper_params['hidden_size_e'])
+        print(output_size_d)
+        print(hyper_params['hidden_size_d'])
         encoder = StepSelectorEncoder(hyper_params['n_buckets'], hyper_params['emb_size'], hyper_params['hidden_size_e'])
         decoder = StepSelectorDecoder(output_size_d, hyper_params['hidden_size_d'])
         encoder.load_state_dict(torch.load(path_encoder, weights_only=True))
