@@ -236,37 +236,36 @@ def grid_search(num_epochs, plot_every):
     ne = num_epochs # num epochs. Please adjust during final testing. num epoch default: 50
     pe = plot_every # plot every iteration. Please adjust during final testing. plot every default: 20
 
-    nb_lst = [1000, 10000, 100000] # num buckets
-    emb_lst = [200, 300, 400] # embedding size
-    hs_lst = [200, 300, 400] # hidden size
-    lr_lst = [ 0.01] # learning rate
-    bs_lst = [10, 20, 30, 40] # batch size
+    nb_lst = [1000, 10000] # num buckets
+    emb_lst = [200, 300] # embedding size
+    hs_lst = [200, 300] # hidden size
+    bs_lst = [30, 40] # batch size
 
     for num_buckets in nb_lst:
         for emb in emb_lst:
             for hidden in hs_lst:
-                for lr in lr_lst:
-                    for bs in bs_lst:
-                        new_dir_name = f"nb_{num_buckets}_es_{emb}_hs_{hidden}_ne_{ne}_pe_{pe}_lr_{lr}_bs_{bs}"
-                        new_dir_path = os.path.join(res_dir_path, new_dir_name)
-                        os.mkdir(new_dir_path)
+                for bs in bs_lst:
+                    lr = 0.01
+                    new_dir_name = f"nb_{num_buckets}_es_{emb}_hs_{hidden}_ne_{ne}_pe_{pe}_lr_{lr}_bs_{bs}"
+                    new_dir_path = os.path.join(res_dir_path, new_dir_name)
+                    os.mkdir(new_dir_path)
+                    
+                    param_dict = {}
+                    param_dict['n_buckets'] = num_buckets
+                    param_dict['emb_size'] = emb
+                    param_dict['hidden_size_e'] = hidden
+                    param_dict['hidden_size_d'] = hidden
+                    param_dict['num_epoch'] = ne
+                    param_dict['plot_every'] = pe
+                    param_dict['learning_rate'] = lr
+                    param_dict['batch_size'] = bs
+                    param_dict['acc_graph_path'] = os.path.join(new_dir_path, "acc_graph.png")
+                    param_dict['loss_graph_path'] = os.path.join(new_dir_path, "loss_graph.png")
+                    param_dict['encoder_file_path'] = os.path.join(new_dir_path, "encoder.pt")
+                    param_dict['decoder_file_path'] = os.path.join(new_dir_path, "decoder.pt")
+                    file_path = os.path.join(new_dir_path, "results.txt")
 
-                        param_dict = {}
-                        param_dict['n_buckets'] = num_buckets
-                        param_dict['emb_size'] = emb
-                        param_dict['hidden_size_e'] = hidden
-                        param_dict['hidden_size_d'] = hidden
-                        param_dict['num_epoch'] = ne
-                        param_dict['plot_every'] = pe
-                        param_dict['learning_rate'] = lr
-                        param_dict['batch_size'] = bs
-                        param_dict['acc_graph_path'] = os.path.join(new_dir_path, "acc_graph.png")
-                        param_dict['loss_graph_path'] = os.path.join(new_dir_path, "loss_graph.png")
-                        param_dict['encoder_file_path'] = os.path.join(new_dir_path, "encoder.pt")
-                        param_dict['decoder_file_path'] = os.path.join(new_dir_path, "decoder.pt")
-                        file_path = os.path.join(new_dir_path, "results.txt")
-
-                        set_up_and_train(file_path, param_dict)
+                    set_up_and_train(file_path, param_dict)
 
 def set_up_and_train(param_path=None, param_dict=None):
     dir = os.path.dirname(__file__)
