@@ -73,7 +73,7 @@ def eval(path_song, path_hyper, path_encoder, path_decoder, path_encoder_dict, p
     timestamp_seq = np.ndarray.tolist(timestamp_seq)
 
     #TODO: convert timestamp_seq into tokens as input for the encoder
-    timestamp_seq_idx = preprocessing.time_tok_convert(timestamp_seq, num_buckets, time_ind_e, 2)
+    timestamp_seq_idx = preprocessing.time_tok_convert(timestamp_seq, num_buckets, time_ind_e)
     #convert from seconds to milliseconds
     hitobj_seq = evaluate_selector(timestamp_seq_idx, encoder, decoder, ind_obj_d)
 

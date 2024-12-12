@@ -19,11 +19,11 @@ def create_map(song_path, timestamps:torch.Tensor, hitobjects:torch.Tensor):
 
     with open("osu_generated_beatmap.osu", 'w') as map:
         # create the general section
-        map.writelines(['osu file format v9\n',
+        map.writelines(['osu file format v14\n',
                         '\n',
                         "[General]\n",
                         f'AudioFilename: {os.path.basename(song_path)}\n',
-                        "AudioLeadIn: 2000\n",
+                        f"AudioLeadIn: {int(timestamps[0]/2)}\n",
                         "PreviewTime: 100\n",
                         "Countdown: 0\n",
                         "SampleSet: Soft\n",

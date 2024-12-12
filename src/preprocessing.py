@@ -165,7 +165,7 @@ class BeatmapDataset(Dataset):
                         dct["TimingPoints"] = parsed_contents
                         i += lines_parsed
                     case "[HitObjects]":
-                        (lines_parsed, parsed_contents) = self.split_hitObjects(contents[i+1:], int(dct["General"]["AudioLeadIn"]))
+                        (lines_parsed, parsed_contents) = self.split_hitObjects(contents[i+1:])
                         dct["TimeStamps"] = parsed_contents[0]
                         dct["HitObjects"] = parsed_contents[1]
                         i += lines_parsed   # Parse for tokens?
@@ -219,7 +219,7 @@ class BeatmapDataset(Dataset):
         return (lines_parsed, parsed_contents)
 
 
-    def split_hitObjects(self, contents, leadin):
+    def split_hitObjects(self, contents):
         lines_parsed = 1
         TimeStamps = []
         HitObjects = []
@@ -265,7 +265,7 @@ class BeatmapDataset(Dataset):
         # Append and prepend start and end tokens.
         HitObjects.append(1)
 
-        TimeStamps_indices = time_tok_convert(TimeStamps, self.num_buckets, self.time_ind_e, leadin)
+        TimeStamps_indices = time_tok_convert(TimeStamps, self.num_buckets, self.time_ind_e)
 
         return (lines_parsed, (TimeStamps_indices, HitObjects)) # Previously (TimeStamps, HitObjects)
 
@@ -279,14 +279,13 @@ def time_tok_convert_helper(element, num_buckets, time_ind_e):
     k = f"{i * 1 / num_buckets}, {(i + 1) * 1 / num_buckets}"
     return time_ind_e[k]
 
-def time_tok_convert(timestamps, num_buckets, time_ind_e, leadin):
+def time_tok_convert(timestamps, num_buckets, time_ind_e):
     """ Given a sequence of <timestamps> we convert it to a sequence of tokens. Assume that the obj to token file is
     made.
 
     note that <timestamps> is a python list!!, TODO: should we do checks to ensure we arn't making a tensor of tensors..??
     """
     norm_stamps = tensor(timestamps, dtype=torch.float64)
-    norm_stamps -= leadin
     # normalize
     maxval = torch.max(norm_stamps)
     minval = torch.min(norm_stamps)
