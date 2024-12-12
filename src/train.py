@@ -325,5 +325,6 @@ def set_up_and_train(param_path=None, param_dict=None):
 
 
 if __name__ == "__main__":
+    print("HEY! Be sure to delete the .json files before training or grid search if you have added more training data!!")
     grid_search(10, 5)
     # set_up_and_train()

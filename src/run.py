@@ -2,14 +2,18 @@ import evaluate
 import postprocessing
 import os
 import json
+import train
 
 def make_hyper_params():
+    curr_dir = os.path.dirname(__file__)
     name = "hyper-params"
-    name = os.path.join(os.path.dirname(__file__), name)
+    name = os.path.join(curr_dir, name)
+    datapath = os.path.join(curr_dir, '..', 'data')
+
     n_buckets = 1000
     emb_size = 200
-    hidden_size_d = 300
-    hidden_size_e = 300
+    hidden_size_d = 200
+    hidden_size_e = 200
     dct = {}
     dct['n_buckets'] = n_buckets 
     dct['emb_size'] = emb_size 
@@ -18,6 +22,8 @@ def make_hyper_params():
     with open(name, 'w') as outfile:
         json.dump(dct, outfile)
 
+    # You still have to create the encoder dictionary again if the num buckets are not the same
+    train.create_vocab_open_token_files(curr_dir, datapath, n_buckets)
 
 
 def run():
