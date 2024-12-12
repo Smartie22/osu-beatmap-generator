@@ -6,7 +6,6 @@ a sequence of gameplay elements when provided a sequence of song time stamps
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import random
 
 class StepSelectorEncoder(nn.Module):
     def __init__(self, num_buckets, emb_size, hidden_size, dropout_rng=0.1):
@@ -65,15 +64,14 @@ class StepSelectorDecoder(nn.Module):
         #layer to compute probabilities across all tokens
         self.fc = nn.Linear(hidden_size, output_size) # out: batch x seq x output_size
 
-    def forward(self, encoder_out, encoder_hidden, teach_rng=0.8, target=None):
+    def forward(self, encoder_out, encoder_hidden, target=None):
         '''
         target is shape (N,L), N is batch size, L is max sequence length
 
         #TODO: generate probability to determine whether we use teacher-forcing or not during training?
         '''
         max_seq_len = encoder_out.size(1) - 1
-        rng = random.random()
-        if not target == None and rng <= teach_rng:
+        if not target == None:
             #print("target not none")
             batch_size = encoder_out.size(0)
         else: 
@@ -94,7 +92,7 @@ class StepSelectorDecoder(nn.Module):
 
             #update the decoder's input by...
             #1 - if a target vector is given, apply teacher-forcing 
-            if not target == None and rng <= teach_rng:
+            if not target == None:
                 decoder_input = target[:, i].unsqueeze(1) #(N,1)
             #2 - use the highest probability token as the next input 
             else:
