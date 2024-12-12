@@ -23,7 +23,7 @@ def create_map(song_path, timestamps:torch.Tensor, hitobjects:torch.Tensor):
                         '\n',
                         "[General]\n",
                         f'AudioFilename: {os.path.basename(song_path)}\n',
-                        "AudioLeadIn: 0\n",
+                        "AudioLeadIn: 2000\n",
                         "PreviewTime: 100\n",
                         "Countdown: 0\n",
                         "SampleSet: Soft\n",
@@ -58,10 +58,11 @@ def create_map(song_path, timestamps:torch.Tensor, hitobjects:torch.Tensor):
         # create the hitobject section
         map.writelines(["\n", "[HitObjects]\n"])
         i = 0
+        end = 0 # used to store the ending timestamp of the last spinner object
         pairs = list(zip(timestamps, hitobjects))
         while i < len(pairs):
             pair = pairs[i]
-            ms = pair[0]
+            ms = pair[0] + 2000
             ho = pair[1]
 
             line = ho.split(',')
@@ -69,11 +70,13 @@ def create_map(song_path, timestamps:torch.Tensor, hitobjects:torch.Tensor):
             types = {'c': 0b00000001, 'l': 0b00000010, 's': 0b00001000}
             t = types[line[2]]
             #BANDAID FIX BELOW FOR SLIDERS (so we dont have other objects being displayed during a slider)
-            if t == 0b00001000: #spinner (CURRENTLY DOES NOT WORK)
-                x = 0
-                y = 0
+            if t == 0b00001000: #spinner
+                x, y = 256,192
+                if end < ms: # if the last spinner object already ended place down the spinner
+                    end = ho[3]
+                    map.write(f"{x},{y},{int(ms)},{t},0,{end}\n")
             if t == 0b00000001: #circle note
-                map.write(f"{x},{y},{int(ms)},{t},0{',' + ','.join(line[3:]) if line[2] == 'l' else ''}\n")
+                map.write(f"{x},{y},{int(ms)},{t},0\n")
             if t == 0b00000010: #slider
                 #TODO: determine how long the slider is on the screen for, remove all future objects that exist within the duration of the slider
                 slider_info = ho.split('|')[1].split(',')

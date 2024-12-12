@@ -86,14 +86,14 @@ class BeatmapDataset(Dataset):
     
     def process_files(self, opus_file, osu_file):
         with ThreadPoolExecutor() as executor:
-            future_audio = executor.submit(process_audio, opus_file)
+            # future_audio = executor.submit(process_audio, opus_file)
             future_beatmap = executor.submit(self.process_beatmap, osu_file)
 
         # Collect results
-        audio = future_audio.result()
+        # audio = future_audio.result()
         beatmap = future_beatmap.result()
         if beatmap:
-            beatmap["Audio"] = audio
+            # beatmap["Audio"] = audio
             return beatmap
 
     async def load_data_parallel(self, root_path, num_points):
@@ -165,7 +165,7 @@ class BeatmapDataset(Dataset):
                         dct["TimingPoints"] = parsed_contents
                         i += lines_parsed
                     case "[HitObjects]":
-                        (lines_parsed, parsed_contents) = self.split_hitObjects(contents[i+1:])
+                        (lines_parsed, parsed_contents) = self.split_hitObjects(contents[i+1:], int(dct["General"]["AudioLeadIn"]))
                         dct["TimeStamps"] = parsed_contents[0]
                         dct["HitObjects"] = parsed_contents[1]
                         i += lines_parsed   # Parse for tokens?
@@ -219,7 +219,7 @@ class BeatmapDataset(Dataset):
         return (lines_parsed, parsed_contents)
 
 
-    def split_hitObjects(self, contents):
+    def split_hitObjects(self, contents, leadin):
         lines_parsed = 1
         TimeStamps = []
         HitObjects = []
@@ -265,7 +265,7 @@ class BeatmapDataset(Dataset):
         # Append and prepend start and end tokens.
         HitObjects.append(1)
 
-        TimeStamps_indices = time_tok_convert(TimeStamps, self.num_buckets, self.time_ind_e)
+        TimeStamps_indices = time_tok_convert(TimeStamps, self.num_buckets, self.time_ind_e, leadin)
 
         return (lines_parsed, (TimeStamps_indices, HitObjects)) # Previously (TimeStamps, HitObjects)
 
@@ -279,16 +279,18 @@ def time_tok_convert_helper(element, num_buckets, time_ind_e):
     k = f"{i * 1 / num_buckets}, {(i + 1) * 1 / num_buckets}"
     return time_ind_e[k]
 
-def time_tok_convert(timestamps, num_buckets, time_ind_e):
+def time_tok_convert(timestamps, num_buckets, time_ind_e, leadin):
     """ Given a sequence of <timestamps> we convert it to a sequence of tokens. Assume that the obj to token file is
     made.
 
     note that <timestamps> is a python list!!, TODO: should we do checks to ensure we arn't making a tensor of tensors..??
     """
     norm_stamps = tensor(timestamps, dtype=torch.float64)
+    norm_stamps -= leadin
     # normalize
     maxval = torch.max(norm_stamps)
-    norm_stamps = norm_stamps / maxval
+    minval = torch.min(norm_stamps)
+    norm_stamps = (norm_stamps - minval)/ (maxval - minval)
     # Put the stamps into buckets
     func = lambda x: (time_tok_convert_helper(x))
     tokens = norm_stamps.apply_(lambda x: (time_tok_convert_helper(x, num_buckets, time_ind_e)))
