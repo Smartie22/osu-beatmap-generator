@@ -14,11 +14,7 @@ def load_weights(output_size_d, path_hyper, path_encoder, path_decoder):
     hyper_params = None
     with (open(path_hyper)) as hyper_param_file:
         hyper_params = load(hyper_param_file)
-        #print(hyper_params['n_buckets'])
-        #print(hyper_params['emb_size'])
-        #print(hyper_params['hidden_size_e'])
-        #print(output_size_d)
-        #print(hyper_params['hidden_size_d'])
+
         encoder = StepSelectorEncoder(hyper_params['n_buckets'], hyper_params['emb_size'], hyper_params['hidden_size_e'])
         decoder = StepSelectorDecoder(output_size_d, hyper_params['hidden_size_d'])
         encoder.load_state_dict(torch.load(path_encoder, weights_only=True))
@@ -48,7 +44,7 @@ def evaluate_selector(X, encoder, decoder, ind_obj_d):
     out_d, _, _ = decoder(out_e, out_hd_e)
 
     out_d = out_d.squeeze(1)
-    _, predictions = torch.topk(out_d, 1) #TODO convert logits into token prediction
+    _, predictions = torch.topk(out_d, 1)
     
     predictions = predictions.squeeze()
 
@@ -65,40 +61,17 @@ def eval(path_song, path_hyper, path_encoder, path_decoder, path_encoder_dict, p
     num_tokens_obj = len(ind_obj_d.keys())
     encoder, decoder, hyper_params = load_weights(num_tokens_obj, path_hyper, path_encoder, path_decoder)
     num_buckets = hyper_params['n_buckets']
-#    melfilter = preprocessing.process_audio(path_song) #NOTE: needed if we use our own CNN model
     y, sr = librosa.load(path_song)
 
-    timestamp_seq = librosa.onset.onset_detect(y=y, sr=sr, units='time') #TODO: use librosa or call our own CNN model to determine offsets and generate a sequence of timestamps to place notes
+    timestamp_seq = librosa.onset.onset_detect(y=y, sr=sr, units='time')
     timestamp_seq = (timestamp_seq * 1000).round()
     timestamp_seq = np.ndarray.tolist(timestamp_seq)
 
-    #TODO: convert timestamp_seq into tokens as input for the encoder
     timestamp_seq_idx = preprocessing.time_tok_convert(timestamp_seq, num_buckets, time_ind_e)
     #convert from seconds to milliseconds
     hitobj_seq = evaluate_selector(timestamp_seq_idx, encoder, decoder, ind_obj_d)
 
-
-    #print("Timestamp sequence to be returned is:", timestamp_seq)
-    #print("Hitobject sequence to be returned is:", hitobj_seq)
-
     return timestamp_seq, hitobj_seq
 
 if __name__ == "__main__":
-    #NOTE: maybe we want to pass in command line arguments which are paths to a song??
     pass
-    #example usage
-#    currpath = os.path.dirname()
-#    path_hyper = os.path.join(currpath, 'hyper-params-selector')
-#    path_encoder = os.path.join(currpath, 'encoder.pt')
-#    path_decoder = os.path.join(currpath, 'decoder.pt')
-#    encoder, decoder = load_weights(path_hyper, path_encoder, path_decoder)
-#
-#    if encoder == None and decoder == None:
-#        raise Exception("Both encoder AND decoder failed to load properly")
-#    elif encoder == None:
-#        raise Exception("Encoder failed to load properly")
-#    elif decoder == None:
-#        raise Exception("Decoder failed to load properly")
-#     
-#    input = tensor([])
-#    sequence = evaluate_selector(input, encoder, decoder)

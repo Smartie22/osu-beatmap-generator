@@ -39,12 +39,7 @@ class StepSelectorEncoder(nn.Module):
         #out is shape (1, N, hidden_size)
         out, (h, c) = self.lstm(wordemb)
         #h is shape (S, hidden_size) where S is the sequence length
-        
-        #amax squishes to shape (1, hidden_size)
-        #mean squishes to shape (1, hidden_size) 
-        # features = torch.cat([torch.amax(h, dim=1),
-        #                       torch.mean(h, dim=1)], axis=-1)
-        #features is shape (2 * hidden_size)
+
         return h, out #features is the context vector, i.e. initial hidden state for decoder?
     
 class StepSelectorDecoder(nn.Module):
@@ -66,15 +61,11 @@ class StepSelectorDecoder(nn.Module):
     def forward(self, encoder_out, encoder_hidden, target=None):
         '''
         target is shape (N,L), N is batch size, L is max sequence length
-
-        #TODO: generate probability to determine whether we use teacher-forcing or not during training?
         '''
         max_seq_len = encoder_out.size(1) - 1
         if not target == None:
-            #print("target not none")
             batch_size = encoder_out.size(0)
-        else: 
-            #print("target is none")
+        else:
             batch_size = 1
         decoder_input = torch.empty(batch_size, 1, dtype=torch.long).fill_(0)
         decoder_hidden = encoder_hidden 
@@ -111,11 +102,6 @@ class StepSelectorDecoder(nn.Module):
         return output, hidden, cells
 
 
-
-
-
-
 if __name__ == "__main__":
-    model = StepSelectorEncoder()
-    print(model)
+    pass
 

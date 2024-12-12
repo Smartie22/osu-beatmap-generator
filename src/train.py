@@ -31,30 +31,18 @@ def get_accuracy(encoder, decoder, dataset, max_samples=1000):
         # x represents the tokenized time-stamp input sequence, 
         # t represents the tokenized target hitobject sequence
 
-        encoder_hd, encoder_out = encoder(x)                          #TODO: test
-        decoder_out, _, _ = decoder(encoder_out, encoder_hd) #TODO: test
-        
-        #lossTODO: determine the accuracy across all tokens generated and their respective targets
+        encoder_hd, encoder_out = encoder(x)
+        decoder_out, _, _ = decoder(encoder_out, encoder_hd)
         #notes: decoder_out is (1, L), where L is the length of the longest sequence in the batch
-        
         #NOTE: decoder_out is a list containing:
         #   list of logits
+
         #i.e. each element in decoder_out is a list of probabilities
-        
         for target, pred_logits in zip(t, decoder_out):
             predicted = pred_logits.argmax(dim=-1)
-            # if target == pad_idx:
-            #     break
-            #print(predicted.shape, target.shape)
-            #print(predicted)
-            #print("target is", target)
-
-            num_correct += int(torch.sum(target == predicted)) # TODO: Not sure if this is right
-            # if predicted == target:
-            #     num_correct += 1
+            num_correct += int(torch.sum(target == predicted))
             num_total += target.size(0)
 
-    #return accuracy
     print("correct:", num_correct, "total:", num_total)
     return num_correct / num_total if num_total > 0 else 0
         
@@ -95,33 +83,11 @@ def train_selector(encoder,
                 #produce sequences of logits
                 e_hd, e_out = encoder(X)
                 d_out, _, _ = decoder(e_out, e_hd, t) #idk if we need the decoder final hidden layer
-                #print("d out tensor shape before transpose is", d_out.shape)
+
                 d_out_tensor = d_out.transpose(0, 1).squeeze()
                 d_out_tensor = d_out_tensor.transpose(1, 2)
-
-                # d_out_tensor = tensor([    # t_flatten = tensor([0, 2, 0, 2]) 
-                #   [2.5, 1.2, 0.3],         # t is target index for each list
-                #   [0.2, 1.1, 2.8],
-                #   [1.5, 0.7, 0.6],
-                #   [0.3, 1.5, 2.1]
-                # ])
-
-                # softmax(d_out_tensor) = tensor([
-                #   [0.7859, 0.1749, 0.0392],  # softmax of [2.5, 1.2, 0.3]
-                #   [0.0780, 0.2121, 0.7099],  # softmax of [0.2, 1.1, 2.8]
-                #   [0.6590, 0.2415, 0.0995],  # softmax of [1.5, 0.7, 0.6]
-                #   [0.0970, 0.2626, 0.6404]   # softmax of [0.3, 1.5, 2.1]
-                # ])
-                # d_out_tensor = torch.cat([torch.stack(logits) for logits in d_out], dim=0)
                 t_tensor = t
-
-                #print("d out tensor is", d_out_tensor)
-                #print("d out tensor shape is", d_out_tensor.shape)
-                #print("t tensor is", t_tensor)
-                #print("t tensor shape is", t_tensor.shape)
-
                 loss = criteron(d_out_tensor, t_tensor)
-#                loss.requires_grad = True
                 loss.backward() #propogate gradients
                 torch.nn.utils.clip_grad_value_(encoder.parameters(), 0.8)
                 torch.nn.utils.clip_grad_value_(decoder.parameters(), 0.8)
@@ -130,7 +96,6 @@ def train_selector(encoder,
                 
                 iter_count += 1
                 if iter_count % plot_every == 0:
-                    #print("calculating accuracy")
                     iters.append(iter_count)
                     ta = get_accuracy(encoder, decoder, train_data)
                     va = get_accuracy(encoder, decoder, val_data)
@@ -178,8 +143,6 @@ def create_vocab_open_token_files(dir, path, n_buckets):
         os.remove(path_ind_tok_e)
     if not (os.path.exists(path_tok_ind_d) or os.path.exists(path_ind_tok_d)):
         preprocessing.create_tokens_decoder(path, path_tok_ind_d, path_ind_tok_d)
-        #os.remove(path_tok_ind_d)
-        #os.remove(path_ind_tok_d)
     preprocessing.create_tokens_encoder(path_tok_ind_e, path_ind_tok_e, n_buckets)
 
 
@@ -210,7 +173,7 @@ def create_datasets(path, tok_ind_e, ind_tok_e, tok_ind_d, ind_tok_d, n_dpoints,
     num_train = (int)(0.8*len(bm))
     train_set = bm.data[:num_train]
     val_set = bm.data[num_train:]
-    test_set = [] #val_set[0]
+    test_set = []
     return train_set, val_set, test_set
 
 def create_models(n_buckets, emb_size, hidden_size_e, hidden_size_d, output_size_d):
@@ -326,4 +289,3 @@ def set_up_and_train(param_path=None, param_dict=None):
 if __name__ == "__main__":
     print("HEY! Be sure to delete the .json files before training or grid search if you have added more training data!!")
     grid_search(10, 5)
-    # set_up_and_train()

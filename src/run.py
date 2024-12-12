@@ -32,7 +32,7 @@ def run():
 
     #create path to song
     usrinput = input("Please type the path to the song:\n")
-    filtered_path = os.path.normpath(os.path.join(currdir, usrinput)) #TODO: check this over and see if it works lol
+    filtered_path = os.path.normpath(os.path.join(currdir, usrinput))
     print("filtered path is:", filtered_path)
     song_path = filtered_path
 

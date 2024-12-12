@@ -14,9 +14,6 @@ def create_map(song_path, timestamps:torch.Tensor, hitobjects:torch.Tensor):
     beat_len = 60000/bpm
     slider_veloc = 1 #because we only use one timing point (and it is uninherited), this is fixed to 1
 
-    #hitobjects = hitobjects.tolist()
-    #timestamps = timestamps.tolist()
-
     with open("osu_generated_beatmap.osu", 'w') as map:
         # create the general section
         map.writelines(['osu file format v14\n',
@@ -78,9 +75,7 @@ def create_map(song_path, timestamps:torch.Tensor, hitobjects:torch.Tensor):
             if t == 0b00000001: #circle note
                 map.write(f"{x},{y},{int(ms)},{t},0\n")
             if t == 0b00000010: #slider
-                #TODO: determine how long the slider is on the screen for, remove all future objects that exist within the duration of the slider
                 slider_info = ho.split('|')[1].split(',')
-#                print("line is", line)
                 slider_slides = int(line[4]) #integer
                 slider_len = float(line[5]) #decimal
                 slider_time = slider_slides * (slider_len / (slider_mult*100*slider_veloc)*beat_len)
@@ -101,13 +96,3 @@ def create_map(song_path, timestamps:torch.Tensor, hitobjects:torch.Tensor):
                 map.write(f"{x},{y},{int(ms)},{t},0{',' + ','.join(line[3:]) if line[2] == 'l' else ''}\n")\
 
             i+=1
-
-                
-#            map.write(f"{x},{y},{int(ms)},{t},0{',' + ','.join(line[3:]) if line[2] == 'l' else ''}\n")
-#            break #temp
-
-#example test
-#o = random.sample(["46,43,c,-1", "44,108,c,-1", "44,172,c,-1", "44,237,c,-1", "67,297,l,B|139:270|161:184,1,130", "193,82,l,B|256:53|322:81,1,130", "315,209,l,B|387:209,2,65", "255,236,c,-1", "196,208,l,B|123:208,2,65", "402,136,c,-1", "360,86,c,-1"], 10)
-#t = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
-#file = os.path.join(os.path.dirname(__file__), "../test/audio.opus")
-#create_map(file, t, o)

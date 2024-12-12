@@ -49,35 +49,6 @@ class BeatmapDataset(Dataset):
         self.ind_obj_d = ind_obj_d
         # Need the number of buckets for translation in the encoder mappings.
         self.num_buckets = num_buckets
-
-        #NOTE: this only imports for training set, idk if thats relevant or a problem or anything
-
-        #create list which stores each tuple described above
-        # data = []
-
-        #iterate over each beatmap in the training data from <root_path>
-        # num_parsed = 1
-        # for currdir, dirnames, filenames in os.walk(root_path):
-        #     if num_parsed > num_points:
-        #         break
-        #     for name in filenames:
-        #         if name.endswith(".opus"): # always process .osu before .mp3
-        #             #apply preprocessing on the audio
-        #             audio = self.process_audio(currdir + "/{0}".format(name))
-
-        #             for name2 in filenames: # directories for specific maps are not very large, this should be fine
-        #                 if name2.endswith(".osu"):
-        #                     #apply preprocessing on the beatmap, combine results
-        #                     dct = self.process_beatmap(currdir + "/{0}".format(name2))
-        #                     dct["Audio"] = audio
-        #                     data.append(dct)
-        #                     num_parsed += 1
-        #                 if num_parsed > num_points:
-        #                     break
-        #             break
-
-        #convert list into pytorch tensor
-        # data_t = tensor(data)
         self.data = asyncio.run(self.load_data_parallel(root_path, num_points)) if fresh_load else self.load_json()
         self.data = np.array(self.data)
 
@@ -86,14 +57,11 @@ class BeatmapDataset(Dataset):
     
     def process_files(self, opus_file, osu_file):
         with ThreadPoolExecutor() as executor:
-            # future_audio = executor.submit(process_audio, opus_file)
             future_beatmap = executor.submit(self.process_beatmap, osu_file)
 
         # Collect results
-        # audio = future_audio.result()
         beatmap = future_beatmap.result()
         if beatmap:
-            # beatmap["Audio"] = audio
             return beatmap
 
     async def load_data_parallel(self, root_path, num_points):
@@ -102,9 +70,7 @@ class BeatmapDataset(Dataset):
         files = []
         batch = 24
         os.environ["OPENBLAS_NUM_THREADS"] = "24"
-        
 
-        # with ProcessPoolExecutor(max_workers=61) as executor:
         for currdir, _, filenames in os.walk(root_path):
             opus_files = [os.path.join(currdir, f) for f in filenames if f.endswith(".opus")]
             osu_files = [os.path.join(currdir, f) for f in filenames if f.endswith(".osu")]
@@ -168,7 +134,7 @@ class BeatmapDataset(Dataset):
                         (lines_parsed, parsed_contents) = self.split_hitObjects(contents[i+1:])
                         dct["TimeStamps"] = parsed_contents[0]
                         dct["HitObjects"] = parsed_contents[1]
-                        i += lines_parsed   # Parse for tokens?
+                        i += lines_parsed   # Parse for tokens
                     case _:
                         i += 1
         return dct
@@ -267,7 +233,7 @@ class BeatmapDataset(Dataset):
 
         TimeStamps_indices = time_tok_convert(TimeStamps, self.num_buckets, self.time_ind_e)
 
-        return (lines_parsed, (TimeStamps_indices, HitObjects)) # Previously (TimeStamps, HitObjects)
+        return (lines_parsed, (TimeStamps_indices, HitObjects))
 
 def time_tok_convert_helper(element, num_buckets, time_ind_e):
     """
@@ -283,7 +249,7 @@ def time_tok_convert(timestamps, num_buckets, time_ind_e):
     """ Given a sequence of <timestamps> we convert it to a sequence of tokens. Assume that the obj to token file is
     made.
 
-    note that <timestamps> is a python list!!, TODO: should we do checks to ensure we arn't making a tensor of tensors..??
+    note that <timestamps> is a python list!!
     """
     norm_stamps = tensor(timestamps, dtype=torch.float64)
     # normalize
@@ -294,7 +260,6 @@ def time_tok_convert(timestamps, num_buckets, time_ind_e):
     func = lambda x: (time_tok_convert_helper(x))
     tokens = norm_stamps.apply_(lambda x: (time_tok_convert_helper(x, num_buckets, time_ind_e)))
 
-    #TODO: reconsider whether we need both start AND end of song tokens pre+appended, or just the end of song token appended
     return torch.cat((tensor([0]), tokens, tensor([1]))).tolist() # Prepend and append the start and end tokens
 
 
@@ -347,7 +312,6 @@ def convert_hitobject_token(self, element):
     """
     return self.obj_ind_d[f"{element}"]
 
-# TODO: please testing !!! also note that these functions might not even get used
 def hitobject_tok_convert(self, hitobjects):
     """
     Convert the sequence of <hitobjects> into a sequence of tokens through the conversion found in <mapping>
@@ -440,7 +404,6 @@ def parse_objects(currdir, name, dct, dct2, glob_idx):
 def create_tokens_encoder(tok_index_name, index_tok_name, num_buckets=10000):
     """ Tokenizer for the encoder. Each bucket: represents a period of time that is of length 1/10000, with the whole
     field being normalized to fit into those 10000 buckets.
-    TODO: Make num_buckets dynamic based on the song's bpm instead of having it fixed.
     """
     mapping = {'<bom>': 0, '<eom>': 1, '<unk>': 2, '<pad>': 3}
     indices = {0: '<bom>', 1: '<eom>', 2: '<unk>', 3: '<pad>'}
@@ -480,12 +443,6 @@ def collate_batch_selector(batch):
     #pad the sequences
     X = pad_sequence(time_seq_list, padding_value=3).transpose(0, 1).type(torch.LongTensor)
     t = pad_sequence(label_list, padding_value=3).transpose(0, 1).type(torch.LongTensor)
-
-
-#    #torch.set_printoptions(profile="full")
-#    #z=2
-#    #print("in collate_fn, t at index", z, "is:", t[z])
-    
     
     return X, t
 
@@ -493,9 +450,6 @@ def collate_batch_selector(batch):
 
 if __name__ == "__main__": # This is used to ensure some unnecessary code does NOT execute...
     # example usage
-#    dir = os.path.dirname(__file__)
-#    filename = os.path.join(dir, '..', 'data', '2085341 BUTAOTOME - Street Journal', 'BUTAOTOME - Street Journal (Djulus) [Extra].osu')
-#    process_beatmap(filename 
     dir = os.path.dirname(__file__)
     path = os.path.join(dir, '..', 'data')
 
@@ -518,29 +472,6 @@ if __name__ == "__main__": # This is used to ensure some unnecessary code does N
     create_tokens_decoder(path, os.path.join(dir, "test_tokenizer.json"), os.path.join(dir, "test_indices.json"))
 
     bm = BeatmapDataset(path, tok_ind_e, ind_tok_e, tok_ind_d, ind_tok_d, 10000)
-
-    # NOTE: testing conversion func
-    # load mapping
-#     tok_to_idx_path = os.path.join(dir, 'test_encoder_tokens_to_idx.json')
-#     mapping = {}
-#     with open(tok_to_idx_path) as jfile:
-#        mapping = json.load(jfile)
-#     print(mapping)
-#     lst = [2, 5, 14, 18]
-#     print(time_tok_convert_helper(2/18,10000,mapping))
-#     print(time_tok_convert_helper(5/18,10000,mapping))
-#     print(time_tok_convert_helper(14/18,10000,mapping))
-#     print(time_tok_convert_helper(18/18,10000,mapping))
-#    
-#     expected = [time_tok_convert_helper(2/18,10000,mapping), time_tok_convert_helper(5/18,10000,mapping), time_tok_convert_helper(14/18,10000,mapping), time_tok_convert_helper(18/18,10000,mapping)]
-#     print("expected result is:", expected)
-#     res = time_tok_convert(lst, mapping, 10000)
-#     print("actual result is:", res)
-
-    #NOTE: testing what hitobjects looks like
-    #print("bm looks like:")
-#    for z in range(36):
-#        print("z is", z, "beatmap is", bm[z])
 
     fd_tok_ind_e.close()
     fd_ind_tok_e.close()
