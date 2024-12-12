@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class StepSelectorEncoder(nn.Module):
-    def __init__(self, num_buckets, emb_size, hidden_size, dropout_rng=0.1):
+    def __init__(self, num_buckets, emb_size, hidden_size):
         '''
         num_buckets  - number of tokens for the timestamps
         emb_size     - size of vector which represents a pattern
@@ -24,7 +24,6 @@ class StepSelectorEncoder(nn.Module):
 
         self.emb = nn.Embedding(self.num_buckets, emb_size, padding_idx=3)
         self.lstm = nn.LSTM(emb_size, hidden_size, batch_first=True)
-        self.dropout = nn.Dropout(dropout_rng)
 
     def forward(self, X):
         '''
@@ -33,7 +32,7 @@ class StepSelectorEncoder(nn.Module):
                 S = length of longest sequence in the batch
         '''
         #look up the embedding
-        wordemb = self.dropout(self.emb(X))
+        wordemb = self.emb(X)
         #wordemb is shape (N, S, emb_size)
 
         #h is shape (N,S,hidden_size)
