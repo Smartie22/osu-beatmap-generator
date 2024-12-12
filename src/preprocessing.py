@@ -321,7 +321,7 @@ def convert_index_hitobject(element, ind_obj_d):
     helper to convert a token back to it's corresponding hit object
     """
 #    return ind_obj_d[f"{element}"]
-    print("element is", element)
+#    print("element is", element)
     retval = ind_obj_d[str(element)]
     return retval 
 

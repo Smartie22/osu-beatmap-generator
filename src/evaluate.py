@@ -14,11 +14,11 @@ def load_weights(output_size_d, path_hyper, path_encoder, path_decoder):
     hyper_params = None
     with (open(path_hyper)) as hyper_param_file:
         hyper_params = load(hyper_param_file)
-        print(hyper_params['n_buckets'])
-        print(hyper_params['emb_size'])
-        print(hyper_params['hidden_size_e'])
-        print(output_size_d)
-        print(hyper_params['hidden_size_d'])
+        #print(hyper_params['n_buckets'])
+        #print(hyper_params['emb_size'])
+        #print(hyper_params['hidden_size_e'])
+        #print(output_size_d)
+        #print(hyper_params['hidden_size_d'])
         encoder = StepSelectorEncoder(hyper_params['n_buckets'], hyper_params['emb_size'], hyper_params['hidden_size_e'])
         decoder = StepSelectorDecoder(output_size_d, hyper_params['hidden_size_d'])
         encoder.load_state_dict(torch.load(path_encoder, weights_only=True))
@@ -78,8 +78,8 @@ def eval(path_song, path_hyper, path_encoder, path_decoder, path_encoder_dict, p
     hitobj_seq = evaluate_selector(timestamp_seq_idx, encoder, decoder, ind_obj_d)
 
 
-    print("Timestamp sequence to be returned is:", timestamp_seq)
-    print("Hitobject sequence to be returned is:", hitobj_seq)
+    #print("Timestamp sequence to be returned is:", timestamp_seq)
+    #print("Hitobject sequence to be returned is:", hitobj_seq)
 
     return timestamp_seq, hitobj_seq
 

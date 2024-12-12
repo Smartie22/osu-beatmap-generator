@@ -10,6 +10,10 @@ def create_map(song_path, timestamps:torch.Tensor, hitobjects:torch.Tensor):
     song = librosa.load(song_path)[0]
     bpm = int(librosa.beat.beat_track(y=song)[0].item())
 
+    slider_mult = 1.2 #hard coded for now
+    beat_len = 60000/bpm
+    slider_veloc = 1 #because we only use one timing point (and it is uninherited), this is fixed to 1
+
     #hitobjects = hitobjects.tolist()
     #timestamps = timestamps.tolist()
 
@@ -42,7 +46,7 @@ def create_map(song_path, timestamps:torch.Tensor, hitobjects:torch.Tensor):
                         "CircleSize:5\n",
                         "OverallDifficulty:8\n",
                         "ApproachRate:9\n",
-                        "SliderMultiplier:1.2\n",
+                        "SliderMultiplier:1.2\n", #keep the same as hard coded value above, too lazy to change this rn
                         "SliderTickRate:2\n"]) 
 
         # create the timing points section
@@ -53,17 +57,48 @@ def create_map(song_path, timestamps:torch.Tensor, hitobjects:torch.Tensor):
 
         # create the hitobject section
         map.writelines(["\n", "[HitObjects]\n"])
-        for ms, ho in zip(timestamps, hitobjects):
+        i = 0
+        pairs = list(zip(timestamps, hitobjects))
+        while i < len(pairs):
+            pair = pairs[i]
+            ms = pair[0]
+            ho = pair[1]
+
             line = ho.split(',')
             x, y = line[0], line[1]
             types = {'c': 0b00000001, 'l': 0b00000010, 's': 0b00001000}
             t = types[line[2]]
-            #bandaid fix
-            if t == 0b00001000:
+            #BANDAID FIX BELOW FOR SLIDERS (so we dont have other objects being displayed during a slider)
+            if t == 0b00001000: #spinner (CURRENTLY DOES NOT WORK)
                 x = 0
                 y = 0
-            if t == 0b00000001 or t == 0b00000010: #SPINNERS DO NOT CURRENTLY WORK!!!!!!!!!!!!!!!!!!!! THEY DO NOT FOLLOW CORRECT SYNTAX
+            if t == 0b00000001: #circle note
                 map.write(f"{x},{y},{int(ms)},{t},0{',' + ','.join(line[3:]) if line[2] == 'l' else ''}\n")
+            if t == 0b00000010: #slider
+                #TODO: determine how long the slider is on the screen for, remove all future objects that exist within the duration of the slider
+                slider_info = ho.split('|')[1].split(',')
+#                print("line is", line)
+                slider_slides = int(line[4]) #integer
+                slider_len = float(line[5]) #decimal
+                slider_time = slider_slides * (slider_len / (slider_mult*100*slider_veloc)*beat_len)
+
+                j = i+1
+                count = 0
+                stop_search = False
+                #find all the following hitobjects that 
+                while j < len(pairs) and not stop_search:
+                    nextpair = pairs[j]
+                    nextms = nextpair[0]
+                    if nextms > ms+slider_time:
+                        stop_search = True
+                    count+=1
+                    j+=1
+
+                i+=count
+                map.write(f"{x},{y},{int(ms)},{t},0{',' + ','.join(line[3:]) if line[2] == 'l' else ''}\n")\
+
+            i+=1
+
                 
 #            map.write(f"{x},{y},{int(ms)},{t},0{',' + ','.join(line[3:]) if line[2] == 'l' else ''}\n")
 #            break #temp
